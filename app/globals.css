@@ -1,0 +1,345 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Updated to match design inspiration: beige/cream background with navy and coral accents */
+  --background: #f5f1e8;
+  /* Warm beige background */
+  --foreground: #1e3a5f;
+  /* Navy blue text */
+  --card: #ffffff;
+  /* White cards */
+  --card-foreground: #1e3a5f;
+  /* Navy card text */
+  --popover: #ffffff;
+  /* White popover */
+  --popover-foreground: #1e3a5f;
+  /* Navy popover text */
+  --primary: #1e3a5f;
+  /* Navy primary */
+  --primary-foreground: #ffffff;
+  /* White text on primary */
+  --secondary: #ff7f5c;
+  /* Coral secondary/accent */
+  --secondary-foreground: #ffffff;
+  /* White text on secondary */
+  --muted: #e8e4d9;
+  /* Light beige muted */
+  --muted-foreground: #5a6c7d;
+  /* Muted navy text */
+  --accent: #ff7f5c;
+  /* Coral accent */
+  --accent-foreground: #ffffff;
+  /* White text on accent */
+  --destructive: #dc2626;
+  /* Red destructive */
+  --destructive-foreground: #ffffff;
+  /* White text on destructive */
+  --border: #d4cfc0;
+  /* Beige border */
+  --input: #ffffff;
+  /* White input background */
+  --ring: rgba(30, 58, 95, 0.3);
+  /* Navy focus ring */
+  --chart-1: #1e3a5f;
+  /* Navy chart */
+  --chart-2: #ff7f5c;
+  /* Coral chart */
+  --chart-3: #4a90e2;
+  /* Blue chart */
+  --chart-4: #50c878;
+  /* Green chart */
+  --chart-5: #f4a460;
+  /* Sandy brown chart */
+  --radius: 0.375rem;
+  /* Slightly smaller radius for cleaner look */
+  --sidebar: #ffffff;
+  /* White sidebar */
+  --sidebar-foreground: #1e3a5f;
+  /* Navy sidebar text */
+  --sidebar-primary: #1e3a5f;
+  /* Navy sidebar primary */
+  --sidebar-primary-foreground: #ffffff;
+  /* White sidebar primary text */
+  --sidebar-accent: #ff7f5c;
+  /* Coral sidebar accent */
+  --sidebar-accent-foreground: #ffffff;
+  /* White sidebar accent text */
+  --sidebar-border: #d4cfc0;
+  /* Beige sidebar border */
+  --sidebar-ring: rgba(30, 58, 95, 0.2);
+  /* Navy sidebar focus ring */
+}
+
+.dark {
+  /* Updated dark mode to complement the light theme */
+  --background: #0f1419;
+  /* Very dark blue-black */
+  --foreground: #e8e4d9;
+  /* Light beige text */
+  --card: #1a1f2e;
+  /* Dark blue card */
+  --card-foreground: #e8e4d9;
+  /* Light beige card text */
+  --popover: #1a1f2e;
+  /* Dark blue popover */
+  --popover-foreground: #e8e4d9;
+  /* Light beige popover text */
+  --primary: #4a90e2;
+  /* Lighter blue primary for dark mode */
+  --primary-foreground: #ffffff;
+  /* White text on primary */
+  --secondary: #ff9575;
+  /* Lighter coral for dark mode */
+  --secondary-foreground: #0f1419;
+  /* Dark text on secondary */
+  --muted: #2a3142;
+  /* Dark muted */
+  --muted-foreground: #9ca3af;
+  /* Gray muted text */
+  --accent: #ff9575;
+  /* Lighter coral accent */
+  --accent-foreground: #0f1419;
+  /* Dark text on accent */
+  --destructive: #ef4444;
+  /* Bright red destructive */
+  --destructive-foreground: #ffffff;
+  /* White text on destructive */
+  --border: #2a3142;
+  /* Dark border */
+  --input: #1a1f2e;
+  /* Dark input */
+  --ring: rgba(74, 144, 226, 0.3);
+  /* Blue focus ring */
+  --chart-1: #4a90e2;
+  /* Blue chart */
+  --chart-2: #ff9575;
+  /* Coral chart */
+  --chart-3: #50c878;
+  /* Green chart */
+  --chart-4: #f4a460;
+  /* Sandy brown chart */
+  --chart-5: #9b59b6;
+  /* Purple chart */
+  --sidebar: #1a1f2e;
+  /* Dark sidebar */
+  --sidebar-foreground: #e8e4d9;
+  /* Light sidebar text */
+  --sidebar-primary: #4a90e2;
+  /* Blue sidebar primary */
+  --sidebar-primary-foreground: #ffffff;
+  /* White sidebar primary text */
+  --sidebar-accent: #ff9575;
+  /* Coral sidebar accent */
+  --sidebar-accent-foreground: #0f1419;
+  /* Dark sidebar accent text */
+  --sidebar-border: #2a3142;
+  /* Dark sidebar border */
+  --sidebar-ring: rgba(74, 144, 226, 0.2);
+  /* Blue sidebar focus ring */
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Added ink splatter effects and animations */
+@layer utilities {
+  .ink-splatter {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ink-splatter::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 20% 30%, rgba(14, 165, 233, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(245, 158, 11, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 40% 80%, rgba(249, 115, 22, 0.06) 0%, transparent 30%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .ink-drop {
+    position: relative;
+  }
+
+  .ink-drop::after {
+    content: "";
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    top: -4px;
+    right: -4px;
+    opacity: 0.6;
+    animation: ink-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes ink-pulse {
+
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 0.6;
+    }
+
+    50% {
+      transform: scale(1.5);
+      opacity: 0.3;
+    }
+  }
+
+  .marv-gradient {
+    background: linear-gradient(135deg,
+        rgba(14, 165, 233, 0.1) 0%,
+        rgba(245, 158, 11, 0.05) 50%,
+        rgba(249, 115, 22, 0.08) 100%);
+  }
+
+  /* Enhanced visual feedback and drag-and-drop styling */
+  .drag-zone {
+    position: relative;
+    transition: all 0.3s ease;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+  }
+
+  .drag-zone:hover {
+    border-color: var(--accent);
+    background-color: rgba(249, 115, 22, 0.05);
+    transform: translateY(-2px);
+  }
+
+  .drag-zone.drag-over {
+    border-color: var(--accent);
+    background-color: rgba(249, 115, 22, 0.1);
+    box-shadow: 0 8px 25px rgba(249, 115, 22, 0.15);
+  }
+
+  .interactive-card {
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .interactive-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .progress-indicator {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .progress-indicator::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    transition: width 0.3s ease;
+  }
+
+  .step-complete::after {
+    width: 100%;
+  }
+
+  .step-active::after {
+    width: 60%;
+  }
+
+  .step-inactive::after {
+    width: 0%;
+  }
+
+  .floating-action {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 50;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s ease;
+  }
+
+  .floating-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.2);
+  }
+
+  .success-pulse {
+    animation: success-pulse 0.6s ease-out;
+  }
+
+  @keyframes success-pulse {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    }
+
+    70% {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+    }
+
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    }
+  }
+}
