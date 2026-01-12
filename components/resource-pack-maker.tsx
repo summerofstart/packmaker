@@ -629,7 +629,7 @@ export function ResourcePackMaker() {
 
   const convertToBedrock = useCallback((bbmodelData: any, modelName: string) => {
     try {
-      console.log("[v0] Converting to Bedrock format:", modelName)
+      console.log("Converting to Bedrock format:", modelName)
 
       const geometry = {
         format_version: "1.16.0",
@@ -723,10 +723,10 @@ export function ResourcePackMaker() {
         })
       }
 
-      console.log("[v0] Bedrock conversion successful, bones:", geometry["minecraft:geometry"][0].bones.length)
+      console.log("Bedrock conversion successful, bones:", geometry["minecraft:geometry"][0].bones.length)
       return geometry
     } catch (error) {
-      console.error("[v0] Bedrock conversion error:", error)
+      console.error("Bedrock conversion error:", error)
       return null
     }
   }, [])
@@ -734,7 +734,7 @@ export function ResourcePackMaker() {
   const handleBbmodelUpload = useCallback(
     async (file: File, parsedData: any) => {
       try {
-        console.log("[v0] BBModel import started:", file.name, "Edition:", packEdition)
+        console.log("BBModel import started:", file.name, "Edition:", packEdition)
         setIsProcessing(true)
         updateProgress("Parsing BBModel file...", 10)
 
@@ -849,7 +849,7 @@ export function ResourcePackMaker() {
         setTimeout(() => {
           setIsProcessing(false)
           setProgress(0)
-          console.log("[v0] BBModel import complete:", {
+          console.log("BBModel import complete:", {
             modelName,
             customModelData,
             targetItem,
@@ -858,7 +858,7 @@ export function ResourcePackMaker() {
           })
         }, 500)
       } catch (error) {
-        console.error("[v0] Import error:", error)
+        console.error("Import error:", error)
         setIsProcessing(false)
         updateProgress(`Error: ${error instanceof Error ? error.message : "Unknown error"}`, 0)
       }
@@ -959,7 +959,7 @@ export function ResourcePackMaker() {
   }, [resourcePack.models])
 
   const generateZip = useCallback(async () => {
-    console.log("[v0] Starting ZIP generation, Edition:", packEdition, "Format:", resourcePack.format)
+    console.log("Starting ZIP generation, Edition:", packEdition, "Format:", resourcePack.format)
     setIsProcessing(true)
     updateProgress("Initializing...", 5)
 
@@ -974,10 +974,10 @@ export function ResourcePackMaker() {
     const zip = new JSZip()
 
     const validModels = resourcePack.models.filter((m) => m.customModelData && m.targetItem)
-    console.log("[v0] Valid models:", validModels.length)
+    console.log("Valid models:", validModels.length)
 
     if (packEdition === "bedrock") {
-      console.log("[v0] Generating Bedrock Edition pack")
+      console.log("Generating Bedrock Edition pack")
       updateProgress("Creating Bedrock manifest...", 15)
 
       // Create manifest.json
@@ -1162,7 +1162,7 @@ ${new Date().toLocaleString()}
         }
       }
     } else {
-      console.log("[v0] Generating Java Edition pack, Format:", resourcePack.format)
+      console.log("Generating Java Edition pack, Format:", resourcePack.format)
 
       // Java Edition pack.mcmeta
       const packMcmeta = {
@@ -1254,7 +1254,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
 
         if (resourcePack.format >= 48) {
           // 1.21.4+ format with range_dispatch
-          console.log("[v0] Using 1.21.4+ item_model format for", itemName)
+          console.log("Using 1.21.4+ item_model format for", itemName)
 
           // Generate individual item definitions for each model to support [minecraft:item_model=name]
           // Reference: https://note.com/toaru_or_die/n/nbd1e8c55a949
@@ -1290,7 +1290,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
           zip.file(`assets/minecraft/items/${itemName}.json`, JSON.stringify(itemDef, null, 2))
         } else {
           // Legacy format with overrides
-          console.log("[v0] Using legacy overrides format for", itemName)
+          console.log("Using legacy overrides format for", itemName)
 
           const itemModel = {
             parent: "item/generated",
@@ -1488,7 +1488,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
     a.click()
     URL.revokeObjectURL(url)
 
-    console.log("[v0] ZIP generation complete!")
+    console.log("ZIP generation complete!")
 
     setTimeout(() => {
       setIsProcessing(false)
@@ -1674,7 +1674,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
   const importExistingPack = useCallback(
     async (file: File) => {
       if (!file || !file.name) {
-        console.error("[v0] Import error: No file provided")
+        console.error("Import error: No file provided")
         alert("Please select a file to import.")
         return
       }
@@ -1721,7 +1721,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
 
           // Detect Edition
           const detectedEdition = await detectPackEdition(zip)
-          console.log("[v0] Detected edition:", detectedEdition)
+          console.log("Detected edition:", detectedEdition)
 
           if (detectedEdition === "bedrock") {
             updateProgress("Importing Bedrock pack...", 30)
@@ -1860,7 +1860,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                     }))
                   }
                 } catch (error) {
-                  console.error(`[v0] Error reading ${itemPath}:`, error)
+                  console.error(`Error reading ${itemPath}:`, error)
                 }
               }
             }
@@ -1878,7 +1878,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                     baseItemOverrides[itemName] = itemData.overrides
                   }
                 } catch (error) {
-                  console.error(`[v0] Error reading ${itemPath}:`, error)
+                  console.error(`Error reading ${itemPath}:`, error)
                 }
               }
             }
@@ -1955,7 +1955,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                     if (typeof texturePath === "string") {
                       const cleanPath = texturePath.replace("minecraft:", "").replace("item/", "")
                       if (textureMap[`item/${cleanPath}`]) {
-                        console.log(`[v0] Linked texture ${cleanPath} to model ${modelRef}`)
+                        console.log(`Linked texture ${cleanPath} to model ${modelRef}`)
                       }
                     }
                   }
@@ -1964,10 +1964,10 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                   processedModels.add(modelRef)
 
                   console.log(
-                    `[v0] Imported model: ${modelRef} (target: ${targetItem}, cmd: ${newModel.customModelData})`,
+                    `Imported model: ${modelRef} (target: ${targetItem}, cmd: ${newModel.customModelData})`,
                   )
                 } catch (error) {
-                  console.error(`[v0] Error reading model ${modelPath}:`, error)
+                  console.error(`Error reading model ${modelPath}:`, error)
                 }
               }
             }
@@ -2118,7 +2118,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
           setProgress(0)
         }
       } catch (error) {
-        console.error("[v0] Import error:", error)
+        console.error("Import error:", error)
         alert(`${t.alerts.importError}\n\nError: ${error instanceof Error ? error.message : "Unknown error"}`)
         setIsProcessing(false)
         setProgress(0)
