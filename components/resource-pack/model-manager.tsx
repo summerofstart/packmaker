@@ -32,10 +32,10 @@ export function ModelManager({ models, textures, onAdd, onImport, onUpdate, onDe
 
             console.log("BBModel import started:", file.name)
 
-            const modelName = parsedData.name || file.name.replace(".bbmodel", "")
+            const modelName = (parsedData.name || file.name.replace(".bbmodel", "")).toLowerCase().replace(/\s+/g, "_")
 
             // Auto-detection logic
-            let targetItem = parsedData.meta?.model_identifier || "stick"
+            let targetItem = (parsedData.meta?.model_identifier || "stick").toLowerCase()
             let detectedCmd: number | undefined = undefined
 
             const nameMatch = file.name.replace(".bbmodel", "").match(/^(.+?)(?:_(\d+))?$/)
@@ -63,6 +63,7 @@ export function ModelManager({ models, textures, onAdd, onImport, onUpdate, onDe
             // Process textures
             const textureMap: Record<string, string> = {}
             const textureFiles: TextureData[] = []
+            const is3DModel = !!(parsedData.elements && parsedData.elements.length > 0)
 
             if (parsedData.textures && Array.isArray(parsedData.textures)) {
                 for (let i = 0; i < parsedData.textures.length; i++) {
@@ -75,11 +76,9 @@ export function ModelManager({ models, textures, onAdd, onImport, onUpdate, onDe
                             arrayBuffer[j] = binaryData.charCodeAt(j)
                         }
                         const blob = new Blob([arrayBuffer], { type: "image/png" })
-                        const textureName = texture.name || `texture_${i}`
+                        const rawTextureName = texture.name || `texture_${i}`
+                        const textureName = rawTextureName.toLowerCase().replace(/\s+/g, "_")
                         const textureFile = new File([blob], `${textureName}.png`, { type: "image/png" })
-
-                        // Dimensions calculation would be nice but requires async Image loading
-                        // We'll skip precise dimensions for now or rely on manager to handle it
 
                         textureFiles.push({
                             id: `texture_${Date.now()}_${i}`,
@@ -90,27 +89,43 @@ export function ModelManager({ models, textures, onAdd, onImport, onUpdate, onDe
                             isOptimized: false
                         })
 
-                        textureMap[`layer${i}`] = textureName
+                        // Use numeric keys for 3D models (0, 1, 2...) or layerX for flat items
+                        const textureKey = is3DModel ? i.toString() : `layer${i}`
+                        textureMap[textureKey] = textureName
                     }
                 }
             }
+
+            // Clean elements to refer to numeric texture keys properly (#0, #1, ...)
+            const cleanedElements = is3DModel ? parsedData.elements.map((el: any) => {
+                const newEl = { ...el }
+                if (newEl.faces) {
+                    Object.keys(newEl.faces).forEach(faceKey => {
+                        const face = newEl.faces[faceKey]
+                        if (typeof face.texture === 'number') {
+                            face.texture = `#${face.texture}`
+                        } else if (typeof face.texture === 'string' && !face.texture.startsWith('#')) {
+                            face.texture = `#${face.texture}`
+                        }
+                    })
+                }
+                return newEl
+            }) : undefined
 
             // Create Model
             const newModel: ModelData = {
                 id: `model_${Date.now()}`,
                 name: modelName,
                 customModelData,
-                parent: "item/generated",
+                parent: is3DModel ? undefined : "item/generated",
                 textures: textureMap,
                 targetItem,
                 customModelDataFloats: [customModelData],
                 customModelDataFlags: [],
                 customModelDataStrings: [],
                 customModelDataColors: [],
-                elements: parsedData.elements,
+                elements: cleanedElements,
                 display: parsedData.display,
-                // Bedrock geometry conversion skipped for simplicity in this component for now
-                // but if needed we can import the converter
             }
 
             onImport(newModel, textureFiles)

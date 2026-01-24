@@ -935,18 +935,19 @@ export function ResourcePackMaker() {
     validModels.forEach((model) => {
       // Support for 1.21.4+ components syntax in targetItem
       // If targetItem already contains 'minecraft:' or components like '[', use it as is
-      const javaItem = model.targetItem.includes(":") || model.targetItem.includes("[")
+      const javaItem = (model.targetItem.includes(":") || model.targetItem.includes("[")
         ? model.targetItem
-        : `minecraft:${model.targetItem}`
+        : `minecraft:${model.targetItem}`).toLowerCase()
 
       if (!mapping.items[javaItem]) {
         mapping.items[javaItem] = []
       }
 
-      const textureName =
+      const textureName = (
         Object.values(model.textures)[0]
           ?.replace(/^.*\//, "")
           .replace(/\.[^/.]+$/, "") || model.name
+      ).toLowerCase().replace(/\s+/g, "_")
 
       mapping.items[javaItem].push({
         name: textureName,
@@ -1260,7 +1261,8 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
       )
 
       // Generate item definitions based on format
-      for (const [itemName, models] of Object.entries(itemGroups)) {
+      for (const [itemNameRaw, models] of Object.entries(itemGroups)) {
+        const itemName = itemNameRaw.toLowerCase()
         const sortedModels = [...models].sort((a, b) => a.customModelData - b.customModelData)
 
         if (resourcePack.format >= 48) {
@@ -1268,15 +1270,15 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
           console.log("Using 1.21.4+ item_model format for", itemName)
 
           // Generate individual item definitions for each model to support [minecraft:item_model=name]
-          // Reference: https://note.com/toaru_or_die/n/nbd1e8c55a949
           sortedModels.forEach(model => {
+            const modelName = model.name.toLowerCase().replace(/\s+/g, "_")
             const singleItemDef = {
               model: {
                 type: "minecraft:model",
-                model: `minecraft:item/${model.name}`
+                model: `minecraft:item/${modelName}`
               }
             }
-            zip.file(`assets/minecraft/items/${model.name}.json`, JSON.stringify(singleItemDef, null, 2))
+            zip.file(`assets/minecraft/items/${modelName}.json`, JSON.stringify(singleItemDef, null, 2))
           })
 
           const itemDef = {
@@ -1292,7 +1294,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                 threshold: model.customModelData,
                 model: {
                   type: "minecraft:model",
-                  model: `minecraft:item/${model.name}`,
+                  model: `minecraft:item/${model.name.toLowerCase().replace(/\s+/g, "_")}`,
                 },
               })),
             },
@@ -1312,7 +1314,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
               predicate: {
                 custom_model_data: model.customModelData,
               },
-              model: `minecraft:item/${model.name}`,
+              model: `minecraft:item/${model.name.toLowerCase().replace(/\s+/g, "_")}`,
             })),
           }
 
@@ -1325,20 +1327,24 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
 
       for (let i = 0; i < validModels.length; i++) {
         const model = validModels[i]
+        const modelName = model.name.toLowerCase().replace(/\s+/g, "_")
         updateProgress(
-          `Processing model ${i + 1}/${validModels.length}: ${model.name}`,
+          `Processing model ${i + 1}/${validModels.length}: ${modelName}`,
           60 + (i / validModels.length) * 15,
         )
 
         const modelJson: any = {
-          parent: model.parent || "item/generated",
           textures: {},
         }
 
+        if (model.parent) {
+          modelJson.parent = model.parent
+        } else if (!model.elements) {
+          modelJson.parent = "item/generated"
+        }
+
         Object.entries(model.textures).forEach(([layer, texturePath]) => {
-          // Clean texture path to be a valid resource location
-          // e.g., "item/my_texture.png" -> "minecraft:item/my_texture"
-          const cleanPath = texturePath.replace(/^.*[\\/]/, "").replace(/\.[^/.]+$/, "")
+          const cleanPath = texturePath.replace(/^.*[\\/]/, "").replace(/\.[^/.]+$/, "").toLowerCase().replace(/\s+/g, "_")
           modelJson.textures[layer] = `minecraft:item/${cleanPath}`
         })
 
@@ -1350,14 +1356,14 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
           modelJson.display = model.display
         }
 
-        zip.file(`assets/minecraft/models/item/${model.name}.json`, JSON.stringify(modelJson, null, 2))
+        zip.file(`assets/minecraft/models/item/${modelName}.json`, JSON.stringify(modelJson, null, 2))
       }
 
       // Add textures
       updateProgress("Adding textures...", 80)
 
       for (const texture of resourcePack.textures) {
-        const textureName = texture.name.replace(/\.[^/.]+$/, "")
+        const textureName = texture.name.replace(/\.[^/.]+$/, "").toLowerCase().replace(/\s+/g, "_")
         if (texture.file) {
           zip.file(`assets/minecraft/textures/item/${textureName}.png`, texture.file)
         }

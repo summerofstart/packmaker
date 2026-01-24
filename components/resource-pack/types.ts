@@ -9,7 +9,7 @@ export interface ModelData {
     id: string
     name: string
     customModelData: number
-    parent: string
+    parent?: string
     textures: Record<string, string>
     elements?: any[]
     display?: any

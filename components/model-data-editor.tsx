@@ -15,7 +15,7 @@ interface ModelData {
   id: string
   name: string
   customModelData: number
-  parent: string
+  parent?: string
   textures: Record<string, string>
   elements?: any[]
   targetItem: string // Added targetItem property
