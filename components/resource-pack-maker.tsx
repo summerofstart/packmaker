@@ -274,72 +274,8 @@ const translations = {
   },
 }
 
-const MINECRAFT_ITEMS = [
-  "stick",
-  "diamond_sword",
-  "iron_sword",
-  "golden_sword",
-  "stone_sword",
-  "wooden_sword",
-  "netherite_sword",
-  "diamond_pickaxe",
-  "iron_pickaxe",
-  "golden_pickaxe",
-  "stone_pickaxe",
-  "wooden_pickaxe",
-  "netherite_pickaxe",
-  "diamond_axe",
-  "iron_axe",
-  "golden_axe",
-  "stone_axe",
-  "wooden_axe",
-  "netherite_axe",
-  "diamond_shovel",
-  "iron_shovel",
-  "golden_shovel",
-  "stone_shovel",
-  "wooden_shovel",
-  "netherite_shovel",
-  "diamond_hoe",
-  "iron_hoe",
-  "golden_hoe",
-  "stone_hoe",
-  "wooden_hoe",
-  "netherite_hoe",
-  "bow",
-  "crossbow",
-  "trident",
-  "shield",
-  "fishing_rod",
-  "apple",
-  "bread",
-  "cooked_beef",
-  "cooked_porkchop",
-  "cooked_chicken",
-  "diamond",
-  "emerald",
-  "gold_ingot",
-  "iron_ingot",
-  "coal",
-  "stone",
-  "cobblestone",
-  "dirt",
-  "grass_block",
-  "oak_log",
-  "enchanted_book",
-  "book",
-  "paper",
-  "map",
-  "compass",
-  "clock",
-  "carrot_on_a_stick",
-  "warped_fungus_on_a_stick",
-  "flint_and_steel",
-  "shears",
-  "spyglass",
-  "brush",
-  "goat_horn",
-]
+import { MINECRAFT_ITEMS } from "./resource-pack/constants"
+
 
 const PACK_FORMATS = [
   { version: "1.21.6", format: 63, description: "Minecraft 1.21.6" },
@@ -1223,10 +1159,16 @@ ${resourcePack.license ? `- **License**: ${resourcePack.license}` : ""}
 
 ${validModels
           .map(
-            (model) => `### ${model.name}
+            (model) => {
+              const safeModelName = model.name.toLowerCase().replace(/[^a-z0-9_.-]/g, "_")
+              return `### ${model.name}
 - **Item**: minecraft:${model.targetItem}
 - **Custom Model Data**: ${model.customModelData}
-- **Give Command** (1.21.4+): 
+- **Give Command** (1.21.4+):
+  \`\`\`
+  /give @p minecraft:${model.targetItem}[minecraft:item_model="${safeModelName}"]
+  \`\`\`
+  OR
   \`\`\`
   /give @p minecraft:${model.targetItem}[minecraft:custom_model_data={floats:[${model.customModelData}.0f]}]
   \`\`\`
@@ -1234,7 +1176,8 @@ ${validModels
   \`\`\`
   /give @p minecraft:${model.targetItem}{CustomModelData:${model.customModelData}}
   \`\`\`
-`,
+`
+            },
           )
           .join("\n")}
 
@@ -1270,13 +1213,14 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
           // Generate individual item definitions for each model to support [minecraft:item_model=name]
           // Reference: https://note.com/toaru_or_die/n/nbd1e8c55a949
           sortedModels.forEach(model => {
+            const safeModelName = model.name.toLowerCase().replace(/[^a-z0-9_.-]/g, "_")
             const singleItemDef = {
               model: {
                 type: "minecraft:model",
-                model: `minecraft:item/${model.name}`
+                model: `minecraft:item/${safeModelName}`
               }
             }
-            zip.file(`assets/minecraft/items/${model.name}.json`, JSON.stringify(singleItemDef, null, 2))
+            zip.file(`assets/minecraft/items/${safeModelName}.json`, JSON.stringify(singleItemDef, null, 2))
           })
 
           const itemDef = {
@@ -1288,13 +1232,16 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                 type: "minecraft:model",
                 model: `minecraft:item/${itemName}`,
               },
-              entries: sortedModels.map((model) => ({
-                threshold: model.customModelData,
-                model: {
-                  type: "minecraft:model",
-                  model: `minecraft:item/${model.name}`,
-                },
-              })),
+              entries: sortedModels.map((model) => {
+                const safeModelName = model.name.toLowerCase().replace(/[^a-z0-9_.-]/g, "_")
+                return {
+                  threshold: model.customModelData,
+                  model: {
+                    type: "minecraft:model",
+                    model: `minecraft:item/${safeModelName}`,
+                  },
+                }
+              }),
             },
           }
 
@@ -1308,12 +1255,15 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
             textures: {
               layer0: `minecraft:item/${itemName}`,
             },
-            overrides: sortedModels.map((model) => ({
-              predicate: {
-                custom_model_data: model.customModelData,
-              },
-              model: `minecraft:item/${model.name}`,
-            })),
+            overrides: sortedModels.map((model) => {
+              const safeModelName = model.name.toLowerCase().replace(/[^a-z0-9_.-]/g, "_")
+              return {
+                predicate: {
+                  custom_model_data: model.customModelData,
+                },
+                model: `minecraft:item/${safeModelName}`,
+              }
+            }),
           }
 
           zip.file(`assets/minecraft/models/item/${itemName}.json`, JSON.stringify(itemModel, null, 2))
@@ -1325,6 +1275,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
 
       for (let i = 0; i < validModels.length; i++) {
         const model = validModels[i]
+        const safeModelName = model.name.toLowerCase().replace(/[^a-z0-9_.-]/g, "_")
         updateProgress(
           `Processing model ${i + 1}/${validModels.length}: ${model.name}`,
           60 + (i / validModels.length) * 15,
@@ -1350,7 +1301,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
           modelJson.display = model.display
         }
 
-        zip.file(`assets/minecraft/models/item/${model.name}.json`, JSON.stringify(modelJson, null, 2))
+        zip.file(`assets/minecraft/models/item/${safeModelName}.json`, JSON.stringify(modelJson, null, 2))
       }
 
       // Add textures
