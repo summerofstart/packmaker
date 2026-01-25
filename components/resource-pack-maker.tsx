@@ -1262,7 +1262,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
 
       // Generate item definitions based on format
       for (const [itemNameRaw, models] of Object.entries(itemGroups)) {
-        const itemName = itemNameRaw.toLowerCase()
+        const itemName = itemNameRaw.toLowerCase().replace(/\s+/g, "_")
         const sortedModels = [...models].sort((a, b) => a.customModelData - b.customModelData)
 
         if (resourcePack.format >= 48) {
