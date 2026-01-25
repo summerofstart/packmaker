@@ -1,6 +1,8 @@
 {
   "name": "marv-packmaker",
   "version": "2.0.0",
+  "author": "MARV Team",
+  "homepage": "https://marvserver.github.io/packmaker/",
   "private": true,
   "scripts": {
     "build": "next build",

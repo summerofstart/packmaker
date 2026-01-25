@@ -2,7 +2,7 @@
 
 A powerful, modern web-based tool for creating Minecraft Java Edition resource packs with advanced features for custom models, fonts, textures, and more.
 
-![Font Manager UI](/.gemini/antigravity/brain/86cedde9-d9e1-4e80-aad6-036f4bcfe539/font_manager_ui_1768557193793.png)
+
 
 ## ✨ Latest Features
 
