@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -87,6 +87,51 @@ const FONT_PRESETS = {
             }
         ],
         usage: 'summon text_display ~ ~ ~ {text:\'{"text":"\\uE004"}\'}'
+    },
+    damage_indicator: {
+        name: "Damage Indicator",
+        description: "Floating 'bounce' text style for damage numbers",
+        icon: Sparkles,
+        providers: [
+            {
+                id: crypto.randomUUID(),
+                type: "bitmap" as const,
+                height: 12,
+                ascent: 10,
+                chars: ["\uE005"]
+            }
+        ],
+        usage: 'summon text_display ~ ~1 ~ {text:\'{"text":"§c12\\uE005","bold":true}\'}'
+    },
+    boss_bar_icons: {
+        name: "Boss Bar Icons",
+        description: "Custom symbols for boss bar overlays",
+        icon: Layout,
+        providers: [
+            {
+                id: crypto.randomUUID(),
+                type: "bitmap" as const,
+                height: 5,
+                ascent: 4,
+                chars: ["\uE006\uE007\uE008"]
+            }
+        ],
+        usage: '{"text": "§f\\uE006 Boss Name"}'
+    },
+    status_effects: {
+        name: "Status Effects",
+        description: "Inline icons for custom potion/buff effects",
+        icon: Smartphone,
+        providers: [
+            {
+                id: crypto.randomUUID(),
+                type: "bitmap" as const,
+                height: 9,
+                ascent: 8,
+                chars: ["\uE009\uE00A"]
+            }
+        ],
+        usage: '{"text": "§f\\uE009 Strength III"}'
     }
 }
 
@@ -96,10 +141,98 @@ const UNICODE_RANGES = {
     supplementary_private: { start: 0xF0000, end: 0xFFFFD, name: "Supplementary Private Use Area-A" }
 }
 
+function FontPreview({ providers, text }: { providers: FontProvider[], text: string }) {
+    const canvasRef = useRef<HTMLCanvasElement>(null)
+
+    useEffect(() => {
+        const canvas = canvasRef.current
+        if (!canvas) return
+        const ctx = canvas.getContext("2d")
+        if (!ctx) return
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.imageSmoothingEnabled = false
+
+        let cursorX = 10
+        const centerY = canvas.height / 2
+
+        // Parse unicode escape sequences in the text
+        const processedText = text.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) =>
+            String.fromCodePoint(parseInt(hex, 16))
+        )
+
+        for (const char of processedText) {
+            let handled = false
+
+            // 1. Check Space Providers
+            for (const provider of providers) {
+                if (provider.type === "space" && provider.advances?.[char]) {
+                    cursorX += provider.advances[char]
+                    handled = true
+                    break
+                }
+            }
+            if (handled) continue
+
+            // 2. Check Bitmap Providers
+            for (const provider of providers) {
+                if (provider.type === "bitmap" && provider.fileHandle && provider.chars) {
+                    const rowIndex = provider.chars.findIndex(row => row.includes(char))
+                    if (rowIndex !== -1) {
+                        const colIndex = provider.chars[rowIndex].indexOf(char)
+                        const height = provider.height || 8
+                        const ascent = provider.ascent || 8
+
+                        const img = new Image()
+                        img.onload = () => {
+                            const charWidth = img.width / provider.chars![rowIndex].length
+                            const charHeight = img.height / provider.chars!.length
+
+                            ctx.drawImage(
+                                img,
+                                colIndex * charWidth,
+                                rowIndex * charHeight,
+                                charWidth,
+                                charHeight,
+                                cursorX,
+                                centerY - (ascent * 2), // Scale factor of 2 for visibility
+                                (charWidth * (height / charHeight)) * 2,
+                                height * 2
+                            )
+                            cursorX += (charWidth * (height / charHeight)) * 2 + 2
+                        }
+                        img.src = URL.createObjectURL(provider.fileHandle)
+                        handled = true
+                        break
+                    }
+                }
+            }
+            if (handled) continue
+
+            // 3. Fallback to System Font
+            ctx.font = "24px Inter, sans-serif"
+            ctx.fillStyle = "rgba(0,0,0,0.5)"
+            const metrics = ctx.measureText(char)
+            ctx.fillText(char, cursorX, centerY)
+            cursorX += metrics.width + 2
+        }
+    }, [providers, text])
+
+    return (
+        <canvas
+            ref={canvasRef}
+            width={400}
+            height={100}
+            className="max-w-full h-auto"
+        />
+    )
+}
+
 export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete }: FontManagerProps) {
     const [isImporting, setIsImporting] = useState(false)
     const [importJson, setImportJson] = useState("")
     const [importError, setImportError] = useState<string | null>(null)
+    const [previewText, setPreviewText] = useState("\\uE000\\uE001\\uE002")
     const [selectedPreset, setSelectedPreset] = useState<string | null>(null)
     const [showUnicodeHelper, setShowUnicodeHelper] = useState(false)
     const [unicodeStart, setUnicodeStart] = useState("E000")
@@ -390,6 +523,32 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete }: Font
                             </div>
                         </CardHeader>
                         <CardContent className="pt-6 space-y-6">
+                            {/* Font Preview Area */}
+                            <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-sm font-semibold flex items-center gap-2">
+                                        <Eye className="h-4 w-4" />
+                                        Real-time Preview
+                                    </Label>
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor={`preview-${font.id}`} className="text-xs text-muted-foreground whitespace-nowrap">Preview Text:</Label>
+                                        <Input
+                                            id={`preview-${font.id}`}
+                                            value={previewText}
+                                            onChange={(e) => setPreviewText(e.target.value)}
+                                            className="h-7 w-32 font-mono text-xs"
+                                            placeholder="\uE000"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex justify-center p-8 bg-black/5 rounded border-2 border-dashed border-muted min-h-[100px] items-center">
+                                    <FontPreview providers={font.providers} text={previewText} />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground text-center italic">
+                                    Note: Preview uses canvas to simulate Minecraft rendering. TTF providers use system fonts.
+                                </p>
+                            </div>
+
                             {font.providers.map((provider, index) => (
                                 <div key={index} className="rounded-lg border bg-card p-4 shadow-sm relative group">
                                     <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -203,14 +203,21 @@ For issues, questions, or suggestions:
 - Check the documentation files
 - Review the example presets
 
-## 🗺️ Roadmap
+## 🗺️ Future Plans
 
+### Planned for 2.1.0
 - [ ] Animation editor for textures
 - [ ] 3D model preview
+- [ ] More font presets (damage indicators, boss bars, etc.)
+- [ ] Font preview system
+- [ ] Unicode character library
+
+### Planned for 3.0.0
 - [ ] Collaborative editing
 - [ ] Cloud storage integration
-- [ ] More font presets
 - [ ] Advanced shader editor
+- [ ] Real-time Minecraft preview
+- [ ] Template marketplace
 
 ---
 
