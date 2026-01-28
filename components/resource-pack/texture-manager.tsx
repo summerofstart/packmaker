@@ -135,9 +135,14 @@ export function TextureManager({
                                             }}
                                         />
                                     </div>
-                                    <div>
-                                        <h4 className="font-medium leading-none truncate max-w-[150px]" title={texture.name}>{texture.name}</h4>
-                                        <p className="text-xs text-muted-foreground mt-1">
+                                    <div className="flex-1 min-w-0">
+                                        <Input
+                                            value={texture.name}
+                                            onChange={(e) => onUpdate(texture.id, { name: e.target.value.toLowerCase().replace(/\s+/g, "_") })}
+                                            className="h-7 text-sm font-medium border-none bg-transparent hover:bg-muted focus:bg-background px-1 -ml-1"
+                                            placeholder="texture_name"
+                                        />
+                                        <p className="text-[10px] text-muted-foreground mt-0.5">
                                             {texture.width}x{texture.height} • {formatFileSize(texture.size || 0)}
                                         </p>
                                     </div>

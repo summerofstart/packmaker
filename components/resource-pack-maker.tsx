@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Sparkles, Film, Upload, Trash2, Plus, Settings2, Layout } from "lucide-react"
+import { Sparkles, Film, Upload, Trash2, Plus, Settings2, Layout, Copy, Check, Terminal } from "lucide-react"
 import { importBedrockPack, detectPackEdition } from "./resource-pack/bedrock-import"
 import {
   convertSoundsToBedrock,
@@ -121,6 +121,9 @@ const translations = {
       transparency: "透明度設定",
       renderType: "描画タイプ (Java)",
       bedrockMaterial: "マテリアル (Bedrock)",
+      giveCommand: "Giveコマンド",
+      summonCommand: "召喚コマンド (Item Display)",
+      copyCommand: "コピー",
     },
     textures: {
       addTexture: "テクスチャを追加",
@@ -243,6 +246,9 @@ const translations = {
       transparency: "Transparency Settings",
       renderType: "Render Type (Java)",
       bedrockMaterial: "Material (Bedrock)",
+      giveCommand: "Give Command",
+      summonCommand: "Summon (Item Display)",
+      copyCommand: "Copy",
     },
     textures: {
       addTexture: "Add Texture",
@@ -684,6 +690,7 @@ export function ResourcePackMaker() {
         size: file.size,
         dimensions,
         isOptimized: false,
+        baseCategory: category,
         animation: {
           // Initialize animation settings
           enabled: false,
@@ -705,9 +712,14 @@ export function ResourcePackMaker() {
           return model
         })
 
+        const updatedTextures = [
+          ...prev.textures.filter((t) => t.path !== newTexture.path),
+          newTexture,
+        ]
+
         return {
           ...prev,
-          textures: [...prev.textures, newTexture],
+          textures: updatedTextures,
           models: updatedModels,
         }
       })
@@ -716,10 +728,47 @@ export function ResourcePackMaker() {
   )
 
   const updateTexture = useCallback((textureId: string, updatedTexture: Partial<TextureData>) => {
-    setResourcePack((prev) => ({
-      ...prev,
-      textures: prev.textures.map((texture) => (texture.id === textureId ? { ...texture, ...updatedTexture } : texture)),
-    }))
+    setResourcePack((prev) => {
+      const oldTexture = prev.textures.find((t) => t.id === textureId)
+      if (!oldTexture) return prev
+
+      const nameChanged = updatedTexture.name && updatedTexture.name !== oldTexture.name
+      let newPath = oldTexture.path
+
+      if (nameChanged) {
+        const category = oldTexture.baseCategory || oldTexture.path.split("/")[1] || "item"
+        newPath = `textures/${category}/${updatedTexture.name}`
+      }
+
+      const updatedTextures = prev.textures.map((texture) =>
+        texture.id === textureId ? { ...texture, ...updatedTexture, path: newPath } : texture,
+      )
+
+      // If name/path changed, update all models that were using the old path
+      let updatedModels = prev.models
+      if (nameChanged) {
+        const oldRef = oldTexture.path.replace("textures/", "")
+        const newRef = newPath.replace("textures/", "")
+
+        updatedModels = prev.models.map((model) => {
+          const newModelTextures = { ...model.textures }
+          let modelChanged = false
+          Object.entries(newModelTextures).forEach(([key, val]) => {
+            if (val === oldRef) {
+              newModelTextures[key] = newRef
+              modelChanged = true
+            }
+          })
+          return modelChanged ? { ...model, textures: newModelTextures } : model
+        })
+      }
+
+      return {
+        ...prev,
+        textures: updatedTextures,
+        models: updatedModels,
+      }
+    })
   }, [])
 
   const optimizeTexture = useCallback(async (textureId: string) => {
@@ -746,29 +795,38 @@ export function ResourcePackMaker() {
     setIsProcessing(true)
     const unoptimizedTextures = resourcePack.textures.filter((t) => !t.isOptimized)
 
+    if (unoptimizedTextures.length === 0) {
+      setIsProcessing(false)
+      return
+    }
+
+    const results: Record<string, { isOptimized: boolean; size: number }> = {}
     for (let i = 0; i < unoptimizedTextures.length; i++) {
       updateProgress(
         `Optimizing texture ${i + 1}/${unoptimizedTextures.length}...`,
         (i / unoptimizedTextures.length) * 100,
       )
 
-      const textureId = unoptimizedTextures[i].id
-      setResourcePack((prev) => ({
-        ...prev,
-        textures: prev.textures.map((texture) =>
-          texture.id === textureId
-            ? { ...texture, isOptimized: true, size: Math.floor((texture.size || 0) * 0.7) }
-            : texture,
-        ),
-      }))
-
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      const texture = unoptimizedTextures[i]
+      // Simulate optimization
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      results[texture.id] = {
+        isOptimized: true,
+        size: Math.floor((texture.size || 0) * 0.7),
+      }
     }
+
+    setResourcePack((prev) => ({
+      ...prev,
+      textures: prev.textures.map((texture) =>
+        results[texture.id] ? { ...texture, ...results[texture.id] } : texture,
+      ),
+    }))
 
     setIsProcessing(false)
     setProgress(0)
     alert(t.alerts.optimizationComplete)
-  }, [resourcePack.textures, t.alerts.optimizationComplete])
+  }, [resourcePack.textures, t.alerts.optimizationComplete, updateProgress])
 
   const convertToBedrock = useCallback((bbmodelData: any, modelName: string) => {
     try {
@@ -791,15 +849,21 @@ export function ResourcePackMaker() {
         ],
       }
 
-      // Convert outliner to bones with proper hierarchy
+      // Recursive bone processing for Bedrock
       if (bbmodelData.outliner && Array.isArray(bbmodelData.outliner)) {
-        const processBone = (item: any, parentName?: string) => {
-          if (!item) return null
+        const bones: any[] = []
 
+        const processItem = (item: any, parentName?: string) => {
+          if (typeof item === "string") {
+            // It's a top-level element UUID, but usually elements are inside groups for Bedrock
+            return
+          }
+
+          const currentBoneName = item.name || `bone_${bones.length}`
           const bone: any = {
-            name: item.name || `bone_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-            pivot: item.origin || [0, 0, 0],
-            cubes: [],
+            name: currentBoneName,
+            pivot: item.origin ? [item.origin[0], item.origin[1], item.origin[2]] : [0, 0, 0],
+            cubes: [] as any[],
           }
 
           if (parentName) {
@@ -807,63 +871,63 @@ export function ResourcePackMaker() {
           }
 
           if (item.rotation) {
-            bone.rotation = item.rotation
+            // Blockbench uses [x, y, z], Bedrock uses [x, y, z] but sometimes needs inversion depending on context
+            // Usually [rotX, rotY, rotZ] is fine
+            bone.rotation = [item.rotation[0], item.rotation[1], item.rotation[2]]
           }
 
-          // Process cubes from children
+          // Process children (could be UUIDs of elements or nested group objects)
           if (item.children && Array.isArray(item.children)) {
-            item.children.forEach((childUuid: string) => {
-              const element = bbmodelData.elements?.find((e: any) => e.uuid === childUuid)
-              if (element) {
-                const cube: any = {
-                  origin: element.from || [0, 0, 0],
-                  size: [
-                    (element.to?.[0] || 0) - (element.from?.[0] || 0),
-                    (element.to?.[1] || 0) - (element.from?.[1] || 0),
-                    (element.to?.[2] || 0) - (element.from?.[2] || 0),
-                  ],
-                  uv: {},
-                }
+            item.children.forEach((child: any) => {
+              if (typeof child === "string") {
+                // It's an element UUID
+                const element = bbmodelData.elements?.find((e: any) => e.uuid === child)
+                if (element) {
+                  const cube: any = {
+                    origin: element.from || [0, 0, 0],
+                    size: [
+                      (element.to?.[0] || 0) - (element.from?.[0] || 0),
+                      (element.to?.[1] || 0) - (element.from?.[1] || 0),
+                      (element.to?.[2] || 0) - (element.from?.[2] || 0),
+                    ],
+                    uv: {} as any,
+                  }
 
-                if (element.rotation) {
-                  cube.rotation = element.rotation
-                  cube.pivot = element.origin || element.from || [0, 0, 0]
-                }
+                  if (element.rotation) {
+                    cube.rotation = element.rotation
+                    cube.pivot = element.origin || element.from || [0, 0, 0]
+                  }
 
-                if (element.inflate) {
-                  cube.inflate = element.inflate
-                }
+                  if (element.inflate) {
+                    cube.inflate = element.inflate
+                  }
 
-                // Convert UV mapping to Bedrock format
-                if (element.faces) {
-                  Object.entries(element.faces).forEach(([faceName, faceData]: [string, any]) => {
-                    if (faceData && faceData.uv) {
-                      cube.uv[faceName] = {
-                        uv: [faceData.uv[0], faceData.uv[1]],
-                        uv_size: [faceData.uv[2] - faceData.uv[0], faceData.uv[3] - faceData.uv[1]],
+                  // Convert UV mapping to Bedrock format
+                  if (element.faces) {
+                    Object.entries(element.faces).forEach(([faceName, faceData]: [string, any]) => {
+                      if (faceData && faceData.uv) {
+                        // Bedrock expects [u, v, width, height] or {uv: [u, v], uv_size: [w, h]}
+                        cube.uv[faceName] = {
+                          uv: [faceData.uv[0], faceData.uv[1]],
+                          uv_size: [faceData.uv[2] - faceData.uv[0], faceData.uv[3] - faceData.uv[1]],
+                        }
                       }
-
-                      if (faceData.texture !== undefined) {
-                        cube.uv[faceName].texture = faceData.texture
-                      }
-                    }
-                  })
+                    })
+                  }
+                  bone.cubes.push(cube)
                 }
-
-                bone.cubes.push(cube)
+              } else {
+                // It's a nested group
+                processItem(child, currentBoneName)
               }
             })
           }
 
-          return bone
+          bones.push(bone)
         }
 
-        bbmodelData.outliner.forEach((item: any) => {
-          const bone = processBone(item)
-          if (bone) {
-            geometry["minecraft:geometry"][0].bones.push(bone)
-          }
-        })
+        bbmodelData.outliner.forEach((item: any) => processItem(item))
+        geometry["minecraft:geometry"][0].bones = bones
       }
 
       console.log("Bedrock conversion successful, bones:", geometry["minecraft:geometry"][0].bones.length)
@@ -952,7 +1016,10 @@ export function ResourcePackMaker() {
               const textureFile = new File([blob], `${textureName}.png`, { type: "image/png" })
 
               textureFiles.push(textureFile)
+              // For Java 3D models, we need index-based keys ("0", "1", etc.)
+              // For Java 2D items, we use "layer0", "layer1"
               textureMap[`layer${i}`] = textureName
+              textureMap[i.toString()] = textureName
             }
           }
         }
@@ -968,10 +1035,10 @@ export function ResourcePackMaker() {
           id: `model_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
           name: modelName,
           customModelData,
-          parent: "item/generated",
+          parent: parsedData.elements ? undefined : "item/generated", // Use generic parent only for 2D items
           textures: textureMap,
           targetItem,
-          customModelDataFloats: [customModelData],
+          customModelDataFloats: [],
           customModelDataFlags: [],
           customModelDataStrings: [],
           customModelDataColors: [],
@@ -999,11 +1066,16 @@ export function ResourcePackMaker() {
           })
         }
 
-        setResourcePack((prev) => ({
-          ...prev,
-          textures: [...prev.textures, ...newTextureDataList],
-          models: [...prev.models, newModel],
-        }))
+        setResourcePack((prev) => {
+          const newPaths = new Set(newTextureDataList.map((t) => t.path))
+          const filteredTextures = prev.textures.filter((t) => !newPaths.has(t.path))
+
+          return {
+            ...prev,
+            textures: [...filteredTextures, ...newTextureDataList],
+            models: [...prev.models, newModel],
+          }
+        })
 
         updateProgress("Complete!", 100)
 
@@ -1025,6 +1097,114 @@ export function ResourcePackMaker() {
       }
     },
     [packEdition, resourcePack.models, getImageDimensions, convertToBedrock],
+  )
+
+  const handleJsonModelImport = useCallback(
+    async (file: File, parsedData: any) => {
+      try {
+        console.log("JSON Model import started:", file.name)
+        setIsProcessing(true)
+        updateProgress("Parsing JSON model file...", 10)
+
+        const modelName = file.name.replace(".json", "")
+
+        // Detect if this is a Blockbench export or a standard Minecraft model
+        const isBlockbench = parsedData.meta || parsedData.resolution || parsedData.outliner
+
+        if (isBlockbench) {
+          // Use existing BBModel handler for Blockbench exports
+          return await handleBbmodelUpload(file, parsedData)
+        }
+
+        // Standard Minecraft Java model JSON
+        const existingCustomModelData = resourcePack.models.map((m) => m.customModelData)
+        let customModelData = 1
+        while (existingCustomModelData.includes(customModelData)) {
+          customModelData++
+        }
+
+        updateProgress("Processing model data...", 50)
+
+        const newModel: ModelData = {
+          id: `model_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          name: modelName,
+          customModelData,
+          parent: parsedData.parent || undefined,
+          textures: parsedData.textures || {},
+          targetItem: "stick",
+          customModelDataFloats: [],
+          customModelDataFlags: [],
+          customModelDataStrings: [],
+          customModelDataColors: [],
+          elements: parsedData.elements,
+          display: parsedData.display,
+          renderType: parsedData.render_type || "minecraft:item/generated",
+          bedrockMaterial: "entity_alphatest",
+        }
+
+        setResourcePack((prev) => ({
+          ...prev,
+          models: [...prev.models, newModel],
+        }))
+
+        updateProgress("Complete!", 100)
+
+        setTimeout(() => {
+          setIsProcessing(false)
+          setProgress(0)
+          alert(`Successfully imported model: ${modelName}`)
+        }, 500)
+      } catch (error) {
+        console.error("JSON model import error:", error)
+        setIsProcessing(false)
+        setProgress(0)
+        alert("Failed to import JSON model. Please check the file format.")
+      }
+    },
+    [resourcePack.models, handleBbmodelUpload, updateProgress],
+  )
+
+  const handleBedrockGeometryImport = useCallback(
+    (parsedData: any) => {
+      try {
+        console.log("Bedrock Geometry import started")
+
+        // Validate Bedrock geometry format
+        if (!parsedData["minecraft:geometry"] && !parsedData.format_version) {
+          alert("Invalid Bedrock geometry file. Must contain 'minecraft:geometry' field.")
+          return
+        }
+
+        // Find the selected model to attach geometry to
+        const selectedModelId = prompt("Enter the model ID or name to attach this Bedrock geometry to:")
+        if (!selectedModelId) return
+
+        const targetModel = resourcePack.models.find(
+          (m) => m.id === selectedModelId || m.name.toLowerCase() === selectedModelId.toLowerCase()
+        )
+
+        if (!targetModel) {
+          alert(`Model "${selectedModelId}" not found. Please create a model first.`)
+          return
+        }
+
+        // Attach Bedrock geometry to the model
+        setResourcePack((prev) => ({
+          ...prev,
+          models: prev.models.map((model) =>
+            model.id === targetModel.id
+              ? { ...model, bedrockGeometry: parsedData }
+              : model
+          ),
+        }))
+
+        alert(`Successfully attached Bedrock geometry to model: ${targetModel.name}`)
+      } catch (error) {
+        console.error("Bedrock geometry import error:", error)
+        alert("Failed to import Bedrock geometry. Please check the file format.")
+      }
+    },
+    [resourcePack.models],
   )
 
   const validatePack = useCallback(() => {
@@ -1796,11 +1976,11 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
     try {
       const JSZip = (await import("jszip")).default
       const mergedTextures = new Map<string, File>()
-      const mergedModels = new Map<string, any>()
+      const mergedModelsMap = new Map<string, any>()
 
       for (let i = 0; i < mergePacks.length; i++) {
         const pack = mergePacks[i]
-        updateProgress(`Merging ${pack.name}...`, 10 + (i / mergePacks.length) * 80)
+        updateProgress(`Merging ${pack.name}...`, 10 + (i / mergePacks.length) * 70)
 
         const zip = await JSZip.loadAsync(pack.file)
 
@@ -1831,7 +2011,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
             const content = await zipEntry.async("text")
             try {
               const modelData = JSON.parse(content)
-              mergedModels.set(path, modelData)
+              mergedModelsMap.set(path, modelData)
             } catch (e) {
               console.error(`Failed to parse model: ${path}`)
             }
@@ -1839,10 +2019,83 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
         }
       }
 
-      // Add merged textures to resource pack
-      for (const [path, file] of mergedTextures.entries()) {
-        await addTexture(file)
+      updateProgress("Processing textures...", 80)
+      const textureEntries = Array.from(mergedTextures.entries())
+      const newTextureDataList = await Promise.all(
+        textureEntries.map(async ([path, file]) => {
+          const fileName = file.name.replace(/\.[^/.]+$/, "")
+          const dimensions = await getImageDimensions(file)
+          const category = path.split("/").find((p) => p === "block" || p === "item") || "item"
+
+          return {
+            id: `texture_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+            name: fileName,
+            file: file,
+            path: `textures/${category}/${fileName}`,
+            size: file.size,
+            dimensions,
+            isOptimized: false,
+            animation: { enabled: false, frametime: 1, interpolate: false, frames: [] },
+          }
+        }),
+      )
+
+      updateProgress("Processing models...", 90)
+      const newModelDataList: ModelData[] = []
+      for (const [path, modelData] of mergedModelsMap.entries()) {
+        const modelName = path.split("/").pop()?.replace(".json", "") || "merged_model"
+        const normalizedTextures: Record<string, string> = {}
+        if (modelData.textures) {
+          Object.entries(modelData.textures).forEach(([tk, tv]) => {
+            if (typeof tv === "string") {
+              const clean = tv.replace(/^.*:/, "").replace(/^item\//, "").replace(/^block\//, "")
+              const hasSlash = tv.includes("/")
+              normalizedTextures[tk] = hasSlash ? tv.replace(/^.*:/, "") : `item/${clean}`
+            }
+          })
+        }
+
+        newModelDataList.push({
+          id: `model_merged_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          name: modelName,
+          customModelData: 0,
+          parent: modelData.parent || "item/generated",
+          textures: normalizedTextures,
+          targetItem: "stick",
+          customModelDataFloats: [],
+          customModelDataFlags: [],
+          customModelDataStrings: [],
+          customModelDataColors: [],
+          elements: modelData.elements,
+          display: modelData.display,
+        })
       }
+
+      setResourcePack((prev) => {
+        let updatedModels = [...prev.models, ...newModelDataList]
+
+        // Auto-link new textures to models
+        newTextureDataList.forEach((newTex) => {
+          const cleanFileName = newTex.name.toLowerCase().replace(/\s+/g, "_")
+          const category = newTex.path.split("/")[1] || "item"
+          updatedModels = updatedModels.map((model) => {
+            const cleanModelName = model.name.toLowerCase().replace(/\s+/g, "_")
+            if (cleanModelName === cleanFileName && Object.keys(model.textures).length === 0) {
+              return { ...model, textures: { layer0: `${category}/${newTex.name}` } }
+            }
+            return model
+          })
+        })
+
+        const newPaths = new Set(newTextureDataList.map((t) => t.path))
+        const filteredTextures = prev.textures.filter((t) => !newPaths.has(t.path))
+
+        return {
+          ...prev,
+          textures: [...filteredTextures, ...newTextureDataList],
+          models: updatedModels,
+        }
+      })
 
       updateProgress("Merge complete!", 100)
 
@@ -1851,7 +2104,9 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
         setProgress(0)
         setMergePacks([])
         setMergeConflicts([])
-        alert(`Successfully merged ${mergePacks.length} packs with ${mergedTextures.size} textures!`)
+        alert(
+          `Successfully merged ${mergePacks.length} packs with ${newTextureDataList.length} textures and ${newModelDataList.length} models!`,
+        )
       }, 500)
     } catch (error) {
       console.error("Merge execution error:", error)
@@ -1859,7 +2114,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
       setProgress(0)
       alert("Failed to merge packs.")
     }
-  }, [mergePacks, mergeConflicts, addTexture])
+  }, [mergePacks, mergeConflicts, getImageDimensions, updateProgress])
 
   const generateMultiVersionPacks = useCallback(async () => {
     const enabledVersions = versionConfigs.filter((v) => v.enabled)
@@ -3016,17 +3271,33 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                     {t.models.addModel}
                   </button>
                   <label className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                    Import BBModel
+                    Import Model JSON
                     <input
                       type="file"
-                      accept=".bbmodel"
+                      accept=".json"
                       className="hidden"
                       onChange={async (e) => {
                         const file = e.target.files?.[0]
                         if (file) {
                           const text = await file.text()
                           const data = JSON.parse(text)
-                          handleBbmodelUpload(file, data)
+                          handleJsonModelImport(file, data)
+                        }
+                      }}
+                    />
+                  </label>
+                  <label className="cursor-pointer rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent/90">
+                    Import Bedrock Geometry
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          const text = await file.text()
+                          const data = JSON.parse(text)
+                          handleBedrockGeometryImport(data)
                         }
                       }}
                     />
@@ -3145,6 +3416,108 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                                   )
                                 })}
                               </select>
+                            </div>
+
+                            {/* Command Snippets */}
+                            <div className="pt-2 border-t border-border/50 space-y-3">
+                              <div>
+                                <label className="text-[10px] font-bold uppercase text-primary flex items-center gap-1 mb-1.5">
+                                  <Terminal className="h-3 w-3" />
+                                  {t.models.giveCommand}
+                                </label>
+                                <div className="space-y-1">
+                                  {(() => {
+                                    const targetItem = model.targetItem.includes(":") ? model.targetItem : `minecraft:${model.targetItem}`
+
+                                    // 1.21.4+ Integrated Component Builder
+                                    const cmdMap: string[] = []
+                                    const floats = [model.customModelData, ...(model.customModelDataFloats || [])]
+                                    cmdMap.push(`floats:[${floats.map(f => `${f}${Number.isInteger(f) ? ".0" : ""}`).join(",")}]`)
+
+                                    if (model.customModelDataFlags?.length) cmdMap.push(`flags:[${model.customModelDataFlags.join(",")}]`)
+                                    if (model.customModelDataStrings?.length) cmdMap.push(`strings:[${model.customModelDataStrings.map(s => `"${s}"`).join(",")}]`)
+                                    if (model.customModelDataColors?.length) cmdMap.push(`colors:[${model.customModelDataColors.map(c => c.replace("#", "0x")).join(",")}]`)
+
+                                    const modernGive = `/give @s ${targetItem}[minecraft:custom_model_data={${cmdMap.join(",")}}]`
+                                    const legacyGive = `/give @s ${targetItem}{CustomModelData:${model.customModelData}}`
+
+                                    return [
+                                      { label: "1.21.4+", cmd: modernGive },
+                                      { label: "Legacy", cmd: legacyGive }
+                                    ].map((item) => (
+                                      <div key={item.label} className="group relative flex items-center bg-muted/30 rounded-md border border-border/50 overflow-hidden hover:border-primary/30 transition-colors">
+                                        <span className="px-1.5 py-1 text-[8px] bg-muted border-r border-border/50 font-bold text-muted-foreground min-w-[32px] text-center">
+                                          {item.label}
+                                        </span>
+                                        <code className="px-2 py-0.5 text-[10px] whitespace-nowrap overflow-x-auto no-scrollbar flex-1 font-mono text-foreground/70">
+                                          {item.cmd}
+                                        </code>
+                                        <button
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(item.cmd)
+                                            toast({ title: "Copied!", description: "Give command copied." })
+                                          }}
+                                          className="p-1 px-1.5 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors border-l border-border/50"
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    ))
+                                  })()}
+                                </div>
+                              </div>
+
+                              <div>
+                                <label className="text-[10px] font-bold uppercase text-accent flex items-center gap-1 mb-1.5">
+                                  <Plus className="h-3 w-3" />
+                                  {t.models.summonCommand}
+                                </label>
+                                <div className="space-y-1">
+                                  {(() => {
+                                    const targetItem = model.targetItem.includes(":") ? model.targetItem : `minecraft:${model.targetItem}`
+
+                                    // 1.21.4+ NBT Component Builder for Item Display
+                                    const cmdObj: any = {
+                                      floats: [model.customModelData, ...(model.customModelDataFloats || [])]
+                                    }
+                                    if (model.customModelDataFlags?.length) cmdObj.flags = model.customModelDataFlags
+                                    if (model.customModelDataStrings?.length) cmdObj.strings = model.customModelDataStrings
+                                    if (model.customModelDataColors?.length) cmdObj.colors = model.customModelDataColors.map(c => c.replace("#", "0x"))
+
+                                    const componentsStr = JSON.stringify({ "minecraft:custom_model_data": cmdObj }).replace(/\"(floats|flags|strings|colors|minecraft:custom_model_data)\":/g, "$1:")
+
+                                    const modernSummon = `/summon item_display ~ ~ ~ {item:{id:"${targetItem}",count:1,components:${componentsStr}}}`
+                                    const modernSummonLarge = `/summon item_display ~ ~0.5 ~ {transformation:{scale:[4.0f,4.0f,4.0f]},item:{id:"${targetItem}",count:1,components:${componentsStr}}}`
+                                    const modernSummonBlock = `/summon item_display ~ ~0.5 ~ {transformation:{scale:[1.0f,1.0f,1.0f]},item_display:"head",item:{id:"${targetItem}",count:1,components:${componentsStr}}}`
+                                    const legacySummon = `/summon armor_stand ~ ~ ~ {ArmorItems:[{},{},{},{id:"${targetItem}",Count:1b,tag:{CustomModelData:${model.customModelData}}}]}`
+
+                                    return [
+                                      { label: "Modern", cmd: modernSummon },
+                                      { label: "Large (4x)", cmd: modernSummonLarge },
+                                      { label: "Head (1x)", cmd: modernSummonBlock },
+                                      { label: "Legacy", cmd: legacySummon }
+                                    ].map((item) => (
+                                      <div key={item.label} className="group relative flex items-center bg-muted/30 rounded-md border border-border/50 overflow-hidden hover:border-accent/30 transition-colors">
+                                        <span className="px-1.5 py-1 text-[8px] bg-muted border-r border-border/50 font-bold text-muted-foreground min-w-[32px] text-center">
+                                          {item.label}
+                                        </span>
+                                        <code className="px-2 py-0.5 text-[10px] whitespace-nowrap overflow-x-auto no-scrollbar flex-1 font-mono text-foreground/70">
+                                          {item.cmd}
+                                        </code>
+                                        <button
+                                          onClick={() => {
+                                            navigator.clipboard.writeText(item.cmd)
+                                            toast({ title: "Copied!", description: "Summon command copied." })
+                                          }}
+                                          className="p-1 px-1.5 hover:bg-accent/20 text-muted-foreground hover:text-accent transition-colors border-l border-border/50"
+                                        >
+                                          <Copy className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    ))
+                                  })()}
+                                </div>
+                              </div>
                             </div>
 
                             <details className="text-xs">

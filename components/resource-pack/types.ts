@@ -36,6 +36,7 @@ export interface TextureData {
     width?: number
     height?: number
     isOptimized?: boolean
+    baseCategory?: string // Added to store original category (item, block, etc.)
     animation?: {
         enabled: boolean
         frametime?: number
