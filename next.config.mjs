@@ -1,7 +1,9 @@
+const isProd = process.env.NODE_ENV === 'production';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
-  basePath: '/packmaker', // Uncommented for subpath deployment
+  basePath: isProd ? '/packmaker' : '', // Use subpath only in production
   trailingSlash: true,
   typescript: {
     ignoreBuildErrors: true,

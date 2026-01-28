@@ -15,9 +15,10 @@ interface ParticleManagerProps {
     onAdd: () => void
     onUpdate: (id: string, data: Partial<CustomParticle>) => void
     onDelete: (id: string) => void
+    t: any
 }
 
-export function ParticleManager({ particles, textures, onAdd, onUpdate, onDelete }: ParticleManagerProps) {
+export function ParticleManager({ particles, textures, onAdd, onUpdate, onDelete, t }: ParticleManagerProps) {
     const particleTextures = textures.filter((t) => t.path.startsWith("textures/particle"))
 
     return (
@@ -117,7 +118,7 @@ export function ParticleManager({ particles, textures, onAdd, onUpdate, onDelete
 
             {particles.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
-                    No particles added yet.
+                    {t?.particles?.noParticles || "No particles added yet."}
                 </div>
             )}
         </div>

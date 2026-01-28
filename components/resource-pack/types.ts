@@ -21,7 +21,9 @@ export interface ModelData {
     isValid?: boolean
     validationErrors?: string[]
     bedrockGeometry?: any
-    bedrockAttachable?: any // Added for preserving attachable data
+    bedrockAttachable?: any
+    renderType?: "minecraft:item/generated" | "minecraft:item/handheld" | "translucent" | "cutout" // Added for Java transparency
+    bedrockMaterial?: "entity_alphatest" | "entity_alphablend" | "entity_emissive_alpha" // Added for Bedrock transparency
 }
 
 export interface TextureData {

@@ -19,6 +19,7 @@ interface FontManagerProps {
     onImport: (font: CustomFont) => void
     onUpdate: (id: string, data: Partial<CustomFont>) => void
     onDelete: (id: string) => void
+    t: any
 }
 
 // Font Presets based on Qiita article examples
@@ -29,12 +30,12 @@ const FONT_PRESETS = {
         icon: Layout,
         providers: [
             {
-                id: crypto.randomUUID(),
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
                 type: "space" as const,
                 advances: { "\uE000": -8 }
             },
             {
-                id: crypto.randomUUID(),
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
                 type: "bitmap" as const,
                 height: 80,
                 ascent: 10,
@@ -49,7 +50,7 @@ const FONT_PRESETS = {
         icon: Eye,
         providers: [
             {
-                id: crypto.randomUUID(),
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
                 type: "bitmap" as const,
                 height: 128,
                 ascent: 64,
@@ -64,7 +65,7 @@ const FONT_PRESETS = {
         icon: Sparkles,
         providers: [
             {
-                id: crypto.randomUUID(),
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
                 type: "bitmap" as const,
                 height: 9,
                 ascent: 8,
@@ -79,7 +80,7 @@ const FONT_PRESETS = {
         icon: Smartphone,
         providers: [
             {
-                id: crypto.randomUUID(),
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
                 type: "bitmap" as const,
                 height: 16,
                 ascent: 12,
@@ -94,7 +95,7 @@ const FONT_PRESETS = {
         icon: Sparkles,
         providers: [
             {
-                id: crypto.randomUUID(),
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
                 type: "bitmap" as const,
                 height: 12,
                 ascent: 10,
@@ -109,7 +110,7 @@ const FONT_PRESETS = {
         icon: Layout,
         providers: [
             {
-                id: crypto.randomUUID(),
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
                 type: "bitmap" as const,
                 height: 5,
                 ascent: 4,
@@ -124,7 +125,7 @@ const FONT_PRESETS = {
         icon: Smartphone,
         providers: [
             {
-                id: crypto.randomUUID(),
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
                 type: "bitmap" as const,
                 height: 9,
                 ascent: 8,
@@ -228,7 +229,7 @@ function FontPreview({ providers, text }: { providers: FontProvider[], text: str
     )
 }
 
-export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete }: FontManagerProps) {
+export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: FontManagerProps) {
     const [isImporting, setIsImporting] = useState(false)
     const [importJson, setImportJson] = useState("")
     const [importError, setImportError] = useState<string | null>(null)
@@ -245,11 +246,11 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete }: Font
             }
 
             const newFont: CustomFont = {
-                id: `font_${Date.now()}`,
+                id: `font_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
                 name: parsed.name || `imported_font_${fonts.length + 1}`,
                 providers: parsed.providers.map((p: any) => ({
                     ...p,
-                    id: crypto.randomUUID(),
+                    id: `preset_${Math.random().toString(36).substring(2, 9)}`,
                     type: p.type || "bitmap"
                 }))
             }
@@ -268,9 +269,9 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete }: Font
         if (!preset) return
 
         const newFont: CustomFont = {
-            id: `font_${Date.now()}`,
+            id: `font_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
             name: `${presetKey}_${fonts.length + 1}`,
-            providers: preset.providers.map(p => ({ ...p, id: crypto.randomUUID() }))
+            providers: preset.providers.map(p => ({ ...p, id: `provider_${Math.random().toString(36).substring(2, 9)}` }))
         }
 
         onImport(newFont)
@@ -282,7 +283,7 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete }: Font
         if (!font) return
 
         const newProvider: FontProvider = {
-            id: crypto.randomUUID(),
+            id: `provider_${Math.random().toString(36).substring(2, 9)}`,
             type,
             ...(type === "space" ? { advances: {} } : {}),
             ...(type === "bitmap" ? { height: 8, ascent: 8, chars: [] } : {}),
@@ -547,6 +548,55 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete }: Font
                                 <p className="text-[10px] text-muted-foreground text-center italic">
                                     Note: Preview uses canvas to simulate Minecraft rendering. TTF providers use system fonts.
                                 </p>
+
+                                {/* Command Snippets Section */}
+                                <div className="pt-4 border-t border-border/50 space-y-3">
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                                        <Copy className="h-3 w-3" />
+                                        {t.fonts.commandSnippets}
+                                    </Label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {[
+                                            {
+                                                label: t.fonts.tellraw,
+                                                command: `/tellraw @a {"text":"${previewText}"}`
+                                            },
+                                            {
+                                                label: t.fonts.title,
+                                                command: `/title @a title {"text":"${previewText}"}`
+                                            },
+                                            {
+                                                label: t.fonts.rename,
+                                                command: `'{"text":"${previewText}","italic":false,"color":"white"}'`
+                                            },
+                                            {
+                                                label: t.fonts.generic,
+                                                command: `{"text":"${previewText}"}`
+                                            }
+                                        ].map((snippet, idx) => (
+                                            <div key={idx} className="space-y-1 group">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] font-medium text-muted-foreground">{snippet.label}</span>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-5 px-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        onClick={() => {
+                                                            const cmd = snippet.command.replace(/\\\\u/g, '\\u');
+                                                            copyToClipboard(cmd);
+                                                            // toast would be better but let's assume it works for now or add it if imported
+                                                        }}
+                                                    >
+                                                        <Copy className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
+                                                <div className="p-2 bg-background rounded border text-[10px] font-mono break-all line-clamp-2">
+                                                    {snippet.command}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
 
                             {font.providers.map((provider, index) => (

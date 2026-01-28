@@ -81,10 +81,10 @@ export function ModelManager({ models, textures, onAdd, onImport, onUpdate, onDe
                         const textureFile = new File([blob], `${textureName}.png`, { type: "image/png" })
 
                         textureFiles.push({
-                            id: `texture_${Date.now()}_${i}`,
+                            id: `texture_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
                             name: textureName,
                             file: textureFile,
-                            path: `textures/item/${textureName}.png`,
+                            path: `textures/item/${textureName}`,
                             size: textureFile.size,
                             isOptimized: false
                         })
@@ -114,7 +114,7 @@ export function ModelManager({ models, textures, onAdd, onImport, onUpdate, onDe
 
             // Create Model
             const newModel: ModelData = {
-                id: `model_${Date.now()}`,
+                id: `model_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
                 name: modelName,
                 customModelData,
                 parent: is3DModel ? undefined : "item/generated",

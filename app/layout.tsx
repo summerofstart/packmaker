@@ -13,21 +13,23 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: '/packmaker/icon-light-32x32.png',
+        url: '/icon-light-32x32.png',
         media: '(prefers-color-scheme: light)',
       },
       {
-        url: '/packmaker/icon-dark-32x32.png',
+        url: '/icon-dark-32x32.png',
         media: '(prefers-color-scheme: dark)',
       },
       {
-        url: '/packmaker/icon.svg',
+        url: '/icon.svg',
         type: 'image/svg+xml',
       },
     ],
-    apple: '/packmaker/apple-icon.png',
+    apple: '/apple-icon.png',
   },
 }
+
+import { Toaster } from "@/components/ui/toaster"
 
 export default function RootLayout({
   children,
@@ -38,6 +40,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`font-sans antialiased`}>
         {children}
+        <Toaster />
         <Analytics />
       </body>
     </html>

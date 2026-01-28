@@ -80,7 +80,7 @@ Based on community best practices from the Minecraft modding community:
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/MARVserver/packmaker.git
 cd resource-pack-maker
 
 # Install dependencies
@@ -181,7 +181,7 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ## 📜 License
 
-[Your License Here]
+MIT License
 
 ## 🙏 Credits
 

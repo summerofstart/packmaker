@@ -9,9 +9,10 @@ interface ShaderManagerProps {
     shaders: ShaderFile[]
     onAdd: (file: File, type: "vertex" | "fragment" | "program") => void
     onDelete: (id: string) => void
+    t: any
 }
 
-export function ShaderManager({ shaders, onAdd, onDelete }: ShaderManagerProps) {
+export function ShaderManager({ shaders, onAdd, onDelete, t }: ShaderManagerProps) {
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "vertex" | "fragment" | "program") => {
         const file = e.target.files?.[0]
         if (file) {
@@ -93,7 +94,7 @@ export function ShaderManager({ shaders, onAdd, onDelete }: ShaderManagerProps) 
 
             {shaders.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
-                    No shaders added yet.
+                    {t?.shaders?.noShaders || "No shaders added yet."}
                 </div>
             )}
         </div>
