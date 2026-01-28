@@ -43,7 +43,10 @@ export function TextureManager({
     const [selectedCategory, setSelectedCategory] = useState("item")
     const [editingAnimation, setEditingAnimation] = useState<string | null>(null)
 
-    const filteredTextures = textures.filter((t) => t.path.startsWith(`textures/${selectedCategory}`))
+    const filteredTextures = textures.filter((t) =>
+        t.path.startsWith(`textures/${selectedCategory}/`) ||
+        t.path === `textures/${selectedCategory}`
+    )
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || [])
@@ -126,7 +129,10 @@ export function TextureManager({
                                             src={URL.createObjectURL(texture.file)}
                                             alt={texture.name}
                                             className="h-full w-full object-contain pixelated"
-                                            onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
+                                            onLoad={(e) => {
+                                                // Optional: Only revoke if you manage a registry of URLs
+                                                // For now, keeping it alive for the session is safer than revoking on every mount
+                                            }}
                                         />
                                     </div>
                                     <div>

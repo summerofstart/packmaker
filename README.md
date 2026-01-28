@@ -2,7 +2,7 @@
 
 A powerful, modern web-based tool for creating Minecraft Java Edition resource packs with advanced features for custom models, fonts, textures, and more.
 
-![Font Manager UI](/.gemini/antigravity/brain/86cedde9-d9e1-4e80-aad6-036f4bcfe539/font_manager_ui_1768557193793.png)
+
 
 ## ✨ Latest Features
 
@@ -80,7 +80,7 @@ Based on community best practices from the Minecraft modding community:
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/MARVserver/packmaker.git
 cd resource-pack-maker
 
 # Install dependencies
@@ -181,7 +181,7 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ## 📜 License
 
-[Your License Here]
+MIT License
 
 ## 🙏 Credits
 

@@ -91,7 +91,7 @@ export function FileUpload({
                 // Base64画像をBlobに変換
                 const response = await fetch(texture.source)
                 const blob = await response.blob()
-                const textureFile = new File([blob], texture.name || `texture_${Date.now()}.png`, { type: "image/png" })
+                const textureFile = new File([blob], texture.name || `texture_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.png`, { type: "image/png" })
                 onTextureUpload(textureFile)
               }
             }
@@ -139,9 +139,8 @@ export function FileUpload({
   return (
     <div className="space-y-4">
       <Card
-        className={`border-2 border-dashed transition-colors ${
-          isDragOver ? "border-secondary bg-secondary/5" : "border-border hover:border-secondary/50"
-        }`}
+        className={`border-2 border-dashed transition-colors ${isDragOver ? "border-secondary bg-secondary/5" : "border-border hover:border-secondary/50"
+          }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

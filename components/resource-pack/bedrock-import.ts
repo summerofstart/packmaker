@@ -208,7 +208,8 @@ export async function importBedrockPack(
 
         const textures: Record<string, string> = {}
         if (matchedTexture) {
-            textures["layer0"] = `item/${matchedTexture.name}`
+            const matchedCategory = matchedTexture.path.split("/")[1] || "item"
+            textures["layer0"] = `${matchedCategory}/${matchedTexture.name}`
         }
 
         // Find matching attachable

@@ -14,6 +14,7 @@ interface SoundManagerProps {
     onAdd: (file: File) => void
     onUpdate: (id: string, data: Partial<CustomSound>) => void
     onDelete: (id: string) => void
+    t: any
 }
 
 const SOUND_CATEGORIES = [
@@ -29,7 +30,7 @@ const SOUND_CATEGORIES = [
     "voice",
 ]
 
-export function SoundManager({ sounds, onAdd, onUpdate, onDelete }: SoundManagerProps) {
+export function SoundManager({ sounds, onAdd, onUpdate, onDelete, t }: SoundManagerProps) {
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
@@ -133,7 +134,7 @@ export function SoundManager({ sounds, onAdd, onUpdate, onDelete }: SoundManager
 
             {sounds.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
-                    No sounds added yet. Upload .ogg files to create custom sound events.
+                    {t?.sounds?.noSounds || "No sounds added yet. Upload .ogg files to create custom sound events."}
                 </div>
             )}
         </div>
