@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Trash2, Type, MoveRight, Layers, Settings2, Layout, Smartphone, Sparkles, Eye, Copy } from "lucide-react"
+import { Plus, Trash2, Type, MoveRight, Layers, Settings2, Layout, Smartphone, Sparkles, Eye, Copy, MessageSquare, FileText } from "lucide-react"
 import { CustomFont, FontProvider } from "./types"
 import { Badge } from "@/components/ui/badge"
 
@@ -133,6 +133,56 @@ const FONT_PRESETS = {
             }
         ],
         usage: '{"text": "§f\\uE009 Strength III"}'
+    },
+    custom_gui: {
+        name: "Custom GUI Background",
+        description: "Large textures for custom container GUIs (chests, barrels)",
+        icon: Layout,
+        providers: [
+            {
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
+                type: "space" as const,
+                advances: { "\uF801": -1, "\uF808": -8, "\uF80A": -10, "\uF80C": -12 }
+            },
+            {
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
+                type: "bitmap" as const,
+                height: 80,
+                ascent: 10,
+                chars: ["\uE200"]
+            }
+        ],
+        usage: '/give @p chest{display:{Name:\'[{"text":"\\uF808\\uE200\\uF80C\\uF80A\\uF808\\uF801","color":"white"},{"text":"Custom GUI","italic":false,"color":"#3F3F3F"}]\'}}'
+    },
+    speech_bubble: {
+        name: "Speech Bubble",
+        description: "Comic-style balloons for NPCs or dialogue systems",
+        icon: MessageSquare,
+        providers: [
+            {
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
+                type: "bitmap" as const,
+                height: 32,
+                ascent: 0,
+                chars: ["\uE003"]
+            }
+        ],
+        usage: '/summon armor_stand ~ ~ ~ {CustomName:\'{"text":"\\uE003"}\', CustomNameVisible:1b}'
+    },
+    book_overlay: {
+        name: "Book Overlay",
+        description: "Full-page images or detailed layouts for written books",
+        icon: FileText,
+        providers: [
+            {
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
+                type: "bitmap" as const,
+                height: 135,
+                ascent: 14,
+                chars: ["\uE102"]
+            }
+        ],
+        usage: '/give @p written_book{title:"",author:"",pages:[\'{"text":"\\uE102","color":"white"}\']}'
     }
 }
 
