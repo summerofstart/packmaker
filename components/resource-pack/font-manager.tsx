@@ -636,6 +636,16 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
+                                                    <Label>Custom Path <span className="text-xs text-muted-foreground">(optional, e.g., minecraft:font/icon.png)</span></Label>
+                                                    <Input
+                                                        type="text"
+                                                        value={provider.file || ""}
+                                                        onChange={(e) => updateProvider(font.id, index, { file: e.target.value })}
+                                                        placeholder="minecraft:font/custom.png"
+                                                        className="font-mono text-xs"
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
                                                     <Label>Height <span className="text-xs text-muted-foreground">(vertical size in pixels)</span></Label>
                                                     <Input
                                                         type="number"
@@ -643,7 +653,7 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
                                                         onChange={(e) => updateProvider(font.id, index, { height: parseInt(e.target.value) })}
                                                     />
                                                 </div>
-                                                <div className="col-span-2 space-y-2">
+                                                <div className="space-y-2">
                                                     <Label>Ascent <span className="text-xs text-muted-foreground">(vertical position, must be &lt; height)</span></Label>
                                                     <Input
                                                         type="number"
@@ -668,7 +678,7 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
 
                                     {provider.type === "ttf" && (
                                         <div className="space-y-4">
-                                            <div className="grid grid-cols-3 gap-4">
+                                            <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-2">
                                                     <Label>Font File {provider.fileHandle && <span className="text-xs text-muted-foreground font-normal">({provider.fileHandle.name})</span>}</Label>
                                                     <Input
@@ -680,6 +690,16 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
                                                                 updateProvider(font.id, index, { fileHandle: file })
                                                             }
                                                         }}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Custom Path <span className="text-xs text-muted-foreground">(optional, e.g., minecraft:negative_spaces.ttf)</span></Label>
+                                                    <Input
+                                                        type="text"
+                                                        value={provider.file || ""}
+                                                        onChange={(e) => updateProvider(font.id, index, { file: e.target.value })}
+                                                        placeholder="minecraft:font/custom.ttf"
+                                                        className="font-mono text-xs"
                                                     />
                                                 </div>
                                                 <div className="space-y-2">

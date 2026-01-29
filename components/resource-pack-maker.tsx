@@ -1814,11 +1814,16 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
 
                 if (provider.fileHandle) {
                   const safeName = provider.fileHandle.name
-                  bitmapPath = `minecraft:font/${safeName}`
+                  // If no custom path specified, use the uploaded filename
+                  if (!provider.file) {
+                    bitmapPath = `minecraft:font/${safeName}`
+                  }
                   zip.file(`assets/minecraft/textures/font/${safeName}`, provider.fileHandle)
                 } else if (font.file && extension.toLowerCase() === "png") {
                   const safeName = `${filename}.png`
-                  bitmapPath = `minecraft:font/${safeName}`
+                  if (!provider.file) {
+                    bitmapPath = `minecraft:font/${safeName}`
+                  }
                   zip.file(`assets/minecraft/textures/font/${safeName}`, font.file)
                 }
 
@@ -1832,11 +1837,16 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
 
                 if (provider.fileHandle) {
                   const safeName = provider.fileHandle.name
-                  ttfPath = `minecraft:font/${safeName}`
+                  // If no custom path specified, use the uploaded filename
+                  if (!provider.file) {
+                    ttfPath = `minecraft:font/${safeName}`
+                  }
                   zip.file(`assets/minecraft/font/${safeName}`, provider.fileHandle)
                 } else if (font.file && (extension.toLowerCase() === "ttf" || extension.toLowerCase() === "otf")) {
                   const safeName = `${filename}.${extension}`
-                  ttfPath = `minecraft:font/${safeName}`
+                  if (!provider.file) {
+                    ttfPath = `minecraft:font/${safeName}`
+                  }
                   zip.file(`assets/minecraft/font/${safeName}`, font.file)
                 }
 
