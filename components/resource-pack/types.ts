@@ -24,6 +24,7 @@ export interface ModelData {
     bedrockAttachable?: any
     renderType?: "minecraft:item/generated" | "minecraft:item/handheld" | "translucent" | "cutout" // Added for Java transparency
     bedrockMaterial?: "entity_alphatest" | "entity_alphablend" | "entity_emissive_alpha" // Added for Bedrock transparency
+    isDefaultOverride?: boolean // If true, this model replaces the default item texture (no CMD required)
 }
 
 export interface TextureData {
