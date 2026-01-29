@@ -1600,6 +1600,10 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
         const itemName = itemNameRaw.toLowerCase().replace(/\s+/g, "_")
         const sortedModels = [...models].sort((a, b) => a.customModelData - b.customModelData)
 
+        // Check if there's a default override model
+        const defaultOverride = sortedModels.find(m => m.isDefaultOverride)
+        const regularModels = sortedModels.filter(m => !m.isDefaultOverride)
+
         if (resourcePack.format >= 48) {
           // 1.21.4+ format with range_dispatch
           console.log("Using 1.21.4+ item_model format for", itemName)
@@ -1616,23 +1620,31 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
             zip.file(`assets/minecraft/items/${modelName}.json`, JSON.stringify(singleItemDef, null, 2))
           })
 
+          // If there's a default override, use it as the base, otherwise use vanilla
+          const baseFallback = defaultOverride
+            ? {
+              type: "minecraft:model",
+              model: `minecraft:item/${defaultOverride.name.toLowerCase().replace(/\s+/g, "_")}`
+            }
+            : {
+              type: "minecraft:model",
+              model: `minecraft:item/${itemName}`
+            }
+
           const itemDef = {
-            model: {
+            model: regularModels.length > 0 ? {
               type: "minecraft:range_dispatch",
               property: "minecraft:custom_model_data",
               index: 0,
-              fallback: {
-                type: "minecraft:model",
-                model: `minecraft:item/${itemName}`,
-              },
-              entries: sortedModels.map((model) => ({
+              fallback: baseFallback,
+              entries: regularModels.map((model) => ({
                 threshold: model.customModelData,
                 model: {
                   type: "minecraft:model",
-                  model: `minecraft:item/${model.name.toLowerCase().replace(/\s+/g, "_")}`,
+                  model: `minecraft:item/${model.name.toLowerCase().replace(/\s+/g, "_")}`
                 },
               })),
-            },
+            } : baseFallback,
           }
 
           zip.file(`assets/minecraft/items/${itemName}.json`, JSON.stringify(itemDef, null, 2))
@@ -1640,16 +1652,21 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
           // Legacy format with overrides
           console.log("Using legacy overrides format for", itemName)
 
+          // If there's a default override, use its texture as the base
+          const baseTexture = defaultOverride && defaultOverride.textures.layer0
+            ? defaultOverride.textures.layer0
+            : `minecraft:item/${itemName}`
+
           const itemModel = {
-            parent: "item/generated",
+            parent: defaultOverride?.parent || "item/generated",
             textures: {
-              layer0: `minecraft:item/${itemName}`,
+              layer0: baseTexture,
             },
-            overrides: sortedModels.map((model) => ({
+            overrides: regularModels.map((model) => ({
               predicate: {
                 custom_model_data: model.customModelData,
               },
-              model: `minecraft:item/${model.name.toLowerCase().replace(/\s+/g, "_")}`,
+              model: `minecraft:item/${model.name.toLowerCase().replace(/\s+/g, "_")}`
             })),
           }
 
@@ -3343,7 +3360,9 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                                   className="font-bold text-lg w-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-primary rounded px-1 -ml-1"
                                   placeholder="Model Name"
                                 />
-                                <p className="text-xs text-muted-foreground">CMD: {model.customModelData}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {model.isDefaultOverride ? "Default Override" : `CMD: ${model.customModelData}`}
+                                </p>
                               </div>
                             </div>
                             <button
@@ -3416,6 +3435,26 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                                   )
                                 })}
                               </select>
+                            </div>
+
+                            {/* Default Override Toggle */}
+                            <div className="flex items-center justify-between py-2 px-3 bg-muted/30 rounded-md border border-border/50">
+                              <div>
+                                <label className="text-xs font-medium text-foreground">Default Override</label>
+                                <p className="text-[10px] text-muted-foreground">Replace item's default texture</p>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={model.isDefaultOverride || false}
+                                onChange={(e) => {
+                                  const isOverride = e.target.checked
+                                  updateModel(model.id, {
+                                    isDefaultOverride: isOverride,
+                                    customModelData: isOverride ? 0 : (model.customModelData === 0 ? 1 : model.customModelData)
+                                  })
+                                }}
+                                className="h-4 w-4 rounded border-border"
+                              />
                             </div>
 
                             {/* Command Snippets */}
@@ -3648,6 +3687,7 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                 onUpdate={updateParticle}
                 onDelete={deleteParticle}
                 textures={resourcePack.textures}
+                onUploadTexture={addTexture}
                 t={t}
               />
             )
