@@ -3906,16 +3906,25 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                             ))
                           ))
                         ) : resourcePack.models.length > 0 ? (
-                          resourcePack.models.map(model => (
-                            <tr key={model.id} className="hover:bg-accent/50">
-                              <td className="p-2 font-mono text-xs">minecraft:{model.targetItem}</td>
-                              <td className="p-2">{model.customModelData}</td>
-                              <td className="p-2">{model.name}</td>
-                              <td className="p-2 text-muted-foreground">
-                                {Object.values(model.textures)[0]?.replace(/^.*\/|minecraft:item\/|\.png$/g, "") || "-"}
-                              </td>
-                            </tr>
-                          ))
+                          resourcePack.models.map(model => {
+                            const javaItem = (model.targetItem.includes(":") || model.targetItem.includes("[")
+                              ? model.targetItem
+                              : `minecraft:${model.targetItem}`).toLowerCase();
+                            const textureName = (
+                              Object.values(model.textures)[0]
+                                ?.replace(/^.*\//, "")
+                                .replace(/\.[^/.]+$/, "") || model.name
+                            ).toLowerCase().replace(/\s+/g, "_");
+
+                            return (
+                              <tr key={model.id} className="hover:bg-accent/50">
+                                <td className="p-2 font-mono text-xs">{javaItem}</td>
+                                <td className="p-2">{model.customModelData}</td>
+                                <td className="p-2">{model.name}</td>
+                                <td className="p-2 text-muted-foreground">{textureName}</td>
+                              </tr>
+                            );
+                          })
                         ) : (
                           <tr>
                             <td colSpan={4} className="p-8 text-center text-muted-foreground">
