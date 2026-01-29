@@ -4037,6 +4037,5 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
         )}
       </div>
     </div>
-  </div >
   )
 }
