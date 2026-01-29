@@ -13,7 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Sparkles, Film, Upload, Trash2, Plus, Settings2, Layout, Copy, Check, Terminal } from "lucide-react"
+import { Sparkles, Film, Upload, Trash2, Plus, Settings2, Layout, Copy, Check, Terminal, Box } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { importBedrockPack, detectPackEdition } from "./resource-pack/bedrock-import"
 import {
   convertSoundsToBedrock,
@@ -173,6 +174,8 @@ const translations = {
       validate: "検証",
       optimize: "最適化",
       reset: "リセット",
+      copied: "コピーしました！",
+      copiedDesc: "コマンドをクリップボードにコピーしました。",
     },
     status: {
       ready: "準備完了",
@@ -301,6 +304,8 @@ const translations = {
       validate: "Validate",
       optimize: "Optimize",
       reset: "Reset",
+      copied: "Copied!",
+      copiedDesc: "Command copied to clipboard.",
     },
     status: {
       ready: "Ready",
@@ -1171,40 +1176,70 @@ export function ResourcePackMaker() {
 
         // Validate Bedrock geometry format
         if (!parsedData["minecraft:geometry"] && !parsedData.format_version) {
-          alert("Invalid Bedrock geometry file. Must contain 'minecraft:geometry' field.")
+          toast({
+            title: "Invalid Format",
+            description: "Invalid Bedrock geometry file. Must contain 'minecraft:geometry' field.",
+            variant: "destructive"
+          })
           return
         }
 
-        // Find the selected model to attach geometry to
-        const selectedModelId = prompt("Enter the model ID or name to attach this Bedrock geometry to:")
-        if (!selectedModelId) return
+        const geometries = parsedData["minecraft:geometry"] || []
+        const geoArray = Array.isArray(geometries) ? geometries : [geometries]
+        const firstGeo = geoArray[0]
+        const identifier = firstGeo?.description?.identifier || "custom_geometry"
+        const modelName = identifier.split(":").pop() || "bedrock_model"
 
-        const targetModel = resourcePack.models.find(
-          (m) => m.id === selectedModelId || m.name.toLowerCase() === selectedModelId.toLowerCase()
+        // Find existing model or Ask to create new
+        const existingModel = resourcePack.models.find(
+          (m) => m.name.toLowerCase() === modelName.toLowerCase() || m.id === modelName
         )
 
-        if (!targetModel) {
-          alert(`Model "${selectedModelId}" not found. Please create a model first.`)
-          return
+        if (existingModel) {
+          setResourcePack((prev) => ({
+            ...prev,
+            models: prev.models.map((model) =>
+              model.id === existingModel.id
+                ? { ...model, bedrockGeometry: parsedData }
+                : model
+            ),
+          }))
+          toast({ title: "Success", description: `Attached Bedrock geometry to existing model: ${existingModel.name}` })
+        } else {
+          // Create a new model automatically for this geometry
+          const existingCustomModelData = resourcePack.models.map((m) => m.customModelData)
+          let newCustomModelData = 1
+          while (existingCustomModelData.includes(newCustomModelData)) {
+            newCustomModelData++
+          }
+
+          const newModel: ModelData = {
+            id: `model_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+            name: modelName,
+            customModelData: newCustomModelData,
+            parent: "item/generated",
+            textures: {},
+            targetItem: "stick",
+            bedrockGeometry: parsedData,
+            bedrockMaterial: "entity_alphatest",
+          }
+
+          setResourcePack((prev) => ({
+            ...prev,
+            models: [...prev.models, newModel],
+          }))
+          toast({ title: "Model Created", description: `Created new model "${modelName}" with attached Bedrock geometry.` })
         }
-
-        // Attach Bedrock geometry to the model
-        setResourcePack((prev) => ({
-          ...prev,
-          models: prev.models.map((model) =>
-            model.id === targetModel.id
-              ? { ...model, bedrockGeometry: parsedData }
-              : model
-          ),
-        }))
-
-        alert(`Successfully attached Bedrock geometry to model: ${targetModel.name}`)
       } catch (error) {
         console.error("Bedrock geometry import error:", error)
-        alert("Failed to import Bedrock geometry. Please check the file format.")
+        toast({
+          title: "Import Failed",
+          description: "Failed to import Bedrock geometry. Please check the file format.",
+          variant: "destructive"
+        })
       }
     },
-    [resourcePack.models],
+    [resourcePack.models, toast],
   )
 
   const validatePack = useCallback(() => {
@@ -3274,748 +3309,683 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
                 </div>
               </div>
             </div>
-          )
-          }
+          )}
 
-          {
-            activeTab === "models" && (
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <button
-                    onClick={addModel}
-                    className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/90"
-                  >
-                    {t.models.addModel}
-                  </button>
-                  <label className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-                    Import Model JSON
-                    <input
-                      type="file"
-                      accept=".json"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          const text = await file.text()
-                          const data = JSON.parse(text)
-                          handleJsonModelImport(file, data)
-                        }
-                      }}
-                    />
-                  </label>
-                  <label className="cursor-pointer rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:bg-accent/90">
-                    Import Bedrock Geometry
-                    <input
-                      type="file"
-                      accept=".json"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          const text = await file.text()
+          {activeTab === "models" && (
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <button
+                  onClick={addModel}
+                  className="rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/90"
+                >
+                  {t.models.addModel}
+                </button>
+                <label className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                  Import Model JSON
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        const text = await file.text()
+                        const data = JSON.parse(text)
+                        handleJsonModelImport(file, data)
+                      }
+                    }}
+                  />
+                </label>
+                <label className="cursor-pointer rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-cyan-700 transition-colors flex items-center gap-2">
+                  <Box className="h-4 w-4" />
+                  Import Bedrock Geometry
+                  <input
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        const text = await file.text()
+                        try {
                           const data = JSON.parse(text)
                           handleBedrockGeometryImport(data)
+                        } catch (err) {
+                          toast({ title: "Error", description: "Invalid JSON file", variant: "destructive" })
+                        }
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              {resourcePack.models.length === 0 ? (
+                <p className="text-center text-muted-foreground">{t.models.noModels}</p>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {resourcePack.models.map((model) => {
+                    const validation = validateModel(model)
+                    const filteredSuggestions = MINECRAFT_ITEMS.filter((item) =>
+                      item.toLowerCase().includes((targetItemInput[model.id] || model.targetItem).toLowerCase()),
+                    ).slice(0, 10)
+
+                    // Find preview texture
+                    const firstTextureKey = Object.keys(model.textures)[0]
+                    const firstTexturePath = model.textures[firstTextureKey]?.replace("item/", "").replace("minecraft:item/", "")
+                    const previewTexture = resourcePack.textures.find(t => t.name === firstTexturePath)
+
+                    return (
+                      <div
+                        key={model.id}
+                        className={`rounded-lg border-2 p-4 flex flex-col h-full shadow-sm hover:shadow-md transition-shadow ${validation.isValid ? "border-green-500/50 bg-card" : "border-destructive bg-destructive/5"}`}
+                      >
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center border border-border overflow-hidden">
+                              {previewTexture ? (
+                                <img src={URL.createObjectURL(previewTexture.file)} alt={model.name} className="w-full h-full object-contain pixelated" />
+                              ) : (
+                                <div className="text-xs text-muted-foreground">No Preview</div>
+                              )}
+                            </div>
+                            <div>
+                              <input
+                                type="text"
+                                value={model.name}
+                                onChange={(e) => updateModel(model.id, { name: e.target.value })}
+                                className="font-bold text-lg w-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-primary rounded px-1 -ml-1"
+                                placeholder="Model Name"
+                              />
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <p className="text-xs text-muted-foreground whitespace-nowrap">
+                                  {model.isDefaultOverride ? "Default Override" : `CMD: ${model.customModelData}`}
+                                </p>
+                                {model.bedrockGeometry && (
+                                  <Badge variant="secondary" className="h-4 px-1 text-[8px] bg-cyan-100 text-cyan-700 hover:bg-cyan-100 border-cyan-200">
+                                    Bedrock Geo
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => deleteModel(model.id)}
+                            className="text-destructive hover:bg-destructive/10 p-2 rounded-md transition-colors"
+                          >
+                            <span className="text-xl">×</span>
+                          </button>
+                        </div>
+
+                        <div className="space-y-3 flex-1">
+                          {/* Compact Inputs */}
+                          <div>
+                            <label className="text-xs font-medium text-muted-foreground">Target Item</label>
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={
+                                  targetItemInput[model.id] !== undefined ? targetItemInput[model.id] : model.targetItem
+                                }
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                  setTargetItemInput((prev) => ({ ...prev, [model.id]: value }))
+                                  setShowTargetItemSuggestions((prev) => ({ ...prev, [model.id]: true }))
+                                  updateModel(model.id, { targetItem: value })
+                                }}
+                                className="w-full rounded-md border border-border bg-input px-2 py-1 text-sm"
+                                placeholder="Enter item ID"
+                              />
+                              {showTargetItemSuggestions[model.id] && filteredSuggestions.length > 0 && (
+                                <div className="absolute z-10 mt-1 w-full rounded-md border-2 border-border bg-background shadow-lg max-h-40 overflow-y-auto">
+                                  {filteredSuggestions.map((item) => (
+                                    <button
+                                      key={item}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault()
+                                        setTargetItemInput((prev) => ({ ...prev, [model.id]: item }))
+                                        updateModel(model.id, { targetItem: item })
+                                        setShowTargetItemSuggestions((prev) => ({ ...prev, [model.id]: false }))
+                                      }}
+                                      className="w-full px-2 py-1 text-left text-xs hover:bg-accent transition-colors"
+                                    >
+                                      {item}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick Texture Selector */}
+                          <div>
+                            <label className="text-xs font-medium text-muted-foreground">Main Texture</label>
+                            <select
+                              value={model.textures["layer0"] || ""}
+                              onChange={(e) => updateModelTexture(model.id, "layer0", e.target.value)}
+                              className="w-full rounded-md border border-border bg-input px-2 py-1 text-sm"
+                            >
+                              <option value="">Select Texture...</option>
+                              {resourcePack.textures.map((t) => {
+                                const normalizedName = t.name
+                                  .replace(/\.[^/.]+$/, "")
+                                  .toLowerCase()
+                                  .replace(/\s+/g, "_")
+                                return (
+                                  <option key={t.id} value={`item/${normalizedName}`}>
+                                    {t.name}
+                                  </option>
+                                )
+                              })}
+                            </select>
+                          </div>
+
+                          {/* Default Override Toggle */}
+                          <div className="flex items-center justify-between py-2 px-3 bg-muted/30 rounded-md border border-border/50">
+                            <div>
+                              <label className="text-xs font-medium text-foreground">Default Override</label>
+                              <p className="text-[10px] text-muted-foreground">Replace item's default texture</p>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={model.isDefaultOverride || false}
+                              onChange={(e) => {
+                                const isOverride = e.target.checked
+                                updateModel(model.id, {
+                                  isDefaultOverride: isOverride,
+                                  customModelData: isOverride ? 0 : (model.customModelData === 0 ? 1 : model.customModelData)
+                                })
+                              }}
+                              className="h-4 w-4 rounded border-border"
+                            />
+                          </div>
+
+                          {/* Command Snippets */}
+                          <div className="pt-2 border-t border-border/50 space-y-3">
+                            <div>
+                              <label className="text-[10px] font-bold uppercase text-primary flex items-center gap-1 mb-1.5">
+                                <Terminal className="h-3 w-3" />
+                                {t.models.giveCommand}
+                              </label>
+                              <div className="space-y-1">
+                                {(() => {
+                                  const targetItem = model.targetItem.includes(":") ? model.targetItem : `minecraft:${model.targetItem}`
+                                  const cmdMap: string[] = []
+                                  const floats = [model.customModelData, ...(model.customModelDataFloats || [])]
+                                  cmdMap.push(`floats:[${floats.map(f => `${f}${Number.isInteger(f) ? ".0" : ""}`).join(",")}]`)
+                                  if (model.customModelDataFlags?.length) cmdMap.push(`flags:[${model.customModelDataFlags.join(",")}]`)
+                                  if (model.customModelDataStrings?.length) cmdMap.push(`strings:[${model.customModelDataStrings.map(s => `"${s}"`).join(",")}]`)
+                                  if (model.customModelDataColors?.length) cmdMap.push(`colors:[${model.customModelDataColors.map(c => c.replace("#", "0x")).join(",")}]`)
+                                  const modernGive = `/give @s ${targetItem}[minecraft:custom_model_data={${cmdMap.join(",")}}]`
+                                  const legacyGive = `/give @s ${targetItem}{CustomModelData:${model.customModelData}}`
+
+                                  return [
+                                    { label: "1.21.4+", cmd: modernGive },
+                                    { label: "Legacy", cmd: legacyGive }
+                                  ].map((item) => (
+                                    <div key={item.label} className="group relative flex items-center bg-muted/30 rounded-md border border-border/50 overflow-hidden hover:border-primary/30 transition-colors">
+                                      <span className="px-1.5 py-1 text-[8px] bg-muted border-r border-border/50 font-bold text-muted-foreground min-w-[32px] text-center">
+                                        {item.label}
+                                      </span>
+                                      <code className="px-2 py-0.5 text-[10px] whitespace-nowrap overflow-x-auto no-scrollbar flex-1 font-mono text-foreground/70">
+                                        {item.cmd}
+                                      </code>
+                                      <button
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(item.cmd)
+                                          toast({ title: t.actions.copied, description: t.actions.copiedDesc })
+                                        }}
+                                        className="p-1 px-1.5 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors border-l border-border/50"
+                                      >
+                                        <Copy className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  ))
+                                })()}
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-bold uppercase text-accent flex items-center gap-1 mb-1.5">
+                                <Plus className="h-3 w-3" />
+                                {t.models.summonCommand}
+                              </label>
+                              <div className="space-y-1">
+                                {(() => {
+                                  const targetItem = model.targetItem.includes(":") ? model.targetItem : `minecraft:${model.targetItem}`
+                                  const cmdObj: any = { floats: [model.customModelData, ...(model.customModelDataFloats || [])] }
+                                  if (model.customModelDataFlags?.length) cmdObj.flags = model.customModelDataFlags
+                                  if (model.customModelDataStrings?.length) cmdObj.strings = model.customModelDataStrings
+                                  if (model.customModelDataColors?.length) cmdObj.colors = model.customModelDataColors.map(c => c.replace("#", "0x"))
+                                  const componentsStr = JSON.stringify({ "minecraft:custom_model_data": cmdObj }).replace(/\"(floats|flags|strings|colors|minecraft:custom_model_data)\":/g, "$1:")
+                                  const modernSummon = `/summon item_display ~ ~ ~ {item:{id:"${targetItem}",count:1,components:${componentsStr}}}`
+                                  const legacySummon = `/summon armor_stand ~ ~ ~ {ArmorItems:[{},{},{},{id:"${targetItem}",Count:1b,tag:{CustomModelData:${model.customModelData}}}]}`
+
+                                  return [
+                                    { label: "Modern", cmd: modernSummon },
+                                    { label: "Legacy", cmd: legacySummon }
+                                  ].map((item) => (
+                                    <div key={item.label} className="group relative flex items-center bg-muted/30 rounded-md border border-border/50 overflow-hidden hover:border-accent/30 transition-colors">
+                                      <span className="px-1.5 py-1 text-[8px] bg-muted border-r border-border/50 font-bold text-muted-foreground min-w-[32px] text-center">
+                                        {item.label}
+                                      </span>
+                                      <code className="px-2 py-0.5 text-[10px] whitespace-nowrap overflow-x-auto no-scrollbar flex-1 font-mono text-foreground/70">
+                                        {item.cmd}
+                                      </code>
+                                      <button
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(item.cmd)
+                                          toast({ title: t.actions.copied, description: t.actions.copiedDesc })
+                                        }}
+                                        className="p-1 px-1.5 hover:bg-accent/20 text-muted-foreground hover:text-accent transition-colors border-l border-border/50"
+                                      >
+                                        <Copy className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  ))
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+
+                          <details className="text-xs">
+                            <summary className="cursor-pointer text-muted-foreground hover:text-primary transition-colors">Advanced Settings</summary>
+                            <div className="mt-2 space-y-2 pl-2 border-l-2 border-border/50">
+                              <div>
+                                <label className="block text-[10px] uppercase font-bold text-muted-foreground">Parent</label>
+                                <select
+                                  value={model.parent}
+                                  onChange={(e) => updateModel(model.id, { parent: e.target.value })}
+                                  className="w-full rounded bg-input border border-border px-1 py-0.5"
+                                >
+                                  <option value="item/generated">item/generated</option>
+                                  <option value="item/handheld">item/handheld</option>
+                                </select>
+                              </div>
+                              <div className="mt-2 space-y-2 pt-2 border-t border-border/30">
+                                <label className="block text-[10px] uppercase font-bold text-muted-foreground">{t.models.transparency}</label>
+                                <div className="space-y-1">
+                                  <span className="text-[9px] text-muted-foreground">{t.models.renderType}</span>
+                                  <select
+                                    value={model.renderType || "minecraft:item/generated"}
+                                    onChange={(e) => updateModel(model.id, { renderType: e.target.value as any })}
+                                    className="w-full rounded bg-input border border-border px-1 py-0.5"
+                                  >
+                                    <option value="minecraft:item/generated">Default (Cutout)</option>
+                                    <option value="translucent">Translucent</option>
+                                    <option value="cutout">Cutout</option>
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[9px] text-muted-foreground">{t.models.bedrockMaterial}</span>
+                                  <select
+                                    value={model.bedrockMaterial || "entity_alphatest"}
+                                    onChange={(e) => updateModel(model.id, { bedrockMaterial: e.target.value as any })}
+                                    className="w-full rounded bg-input border border-border px-1 py-0.5"
+                                  >
+                                    <option value="entity_alphatest">Alpha Test</option>
+                                    <option value="entity_alphablend">Alpha Blend</option>
+                                    <option value="entity_emissive_alpha">Emissive Alpha</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </details>
+                        </div>
+                        {model.bedrockGeometry && (
+                          <div className="mt-3 text-xs bg-cyan-500/10 text-cyan-600 px-2 py-1 rounded border border-cyan-500/20">
+                            Bedrock Geometry Linked
+                          </div>
+                        )}
+                        {!validation.isValid && (
+                          <div className="mt-2 text-xs text-destructive bg-destructive/10 px-2 py-1 rounded">
+                            {validation.errors[0]}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "textures" && (
+            <TextureManager
+              textures={resourcePack.textures}
+              onAdd={addTexture}
+              onDelete={deleteTexture}
+              onUpdate={updateTexture}
+              onOptimize={optimizeTexture}
+              onOptimizeAll={optimizeAllTextures}
+            />
+          )}
+
+          {activeTab === "fonts" && (
+            <FontManager
+              fonts={resourcePack.fonts}
+              onAdd={addFont}
+              onUpdate={updateFont}
+              onDelete={deleteFont}
+              onImport={handleFontImport}
+              t={t}
+            />
+          )}
+
+          {activeTab === "sounds" && (
+            <SoundManager
+              sounds={resourcePack.sounds}
+              onAdd={addSound}
+              onUpdate={updateSound}
+              onDelete={deleteSound}
+              t={t}
+            />
+          )}
+
+          {activeTab === "particles" && (
+            <ParticleManager
+              particles={resourcePack.particles}
+              onAdd={addParticle}
+              onUpdate={updateParticle}
+              onDelete={deleteParticle}
+              textures={resourcePack.textures}
+              onUploadTexture={addTexture}
+              t={t}
+            />
+          )}
+
+          {activeTab === "shaders" && (
+            <ShaderManager
+              shaders={resourcePack.shaders}
+              onAdd={addShader}
+              onDelete={deleteShader}
+              t={t}
+            />
+          )}
+
+          {activeTab === "merge" && (
+            <div className="space-y-6">
+              <div className="border-2 border-primary rounded-lg p-6 bg-card">
+                <h3 className="text-xl font-bold text-primary mb-4">Texture Pack Merge</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Upload Resource Packs to Merge
+                    </label>
+                    <input
+                      type="file"
+                      accept=".zip"
+                      multiple
+                      onChange={(e) => e.target.files && handleMergePackUpload(e.target.files)}
+                      className="w-full px-4 py-2 border-2 border-primary rounded-lg bg-background text-foreground"
+                    />
+                  </div>
+                  {mergePacks.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-foreground">Packs to Merge ({mergePacks.length})</h4>
+                      <div className="space-y-2">
+                        {mergePacks.map((pack, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                            <span className="text-foreground">{pack.name}</span>
+                            <button
+                              onClick={() => setMergePacks((prev) => prev.filter((_, i) => i !== index))}
+                              className="px-3 py-1 bg-destructive text-destructive-foreground rounded hover:opacity-80"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={analyzeMergeConflicts}
+                          disabled={isProcessing}
+                          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
+                        >
+                          Analyze Conflicts
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {mergeConflicts.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-foreground">Conflicts Found ({mergeConflicts.length})</h4>
+                      <div className="space-y-2 max-h-96 overflow-y-auto">
+                        {mergeConflicts.map((conflict, index) => (
+                          <div key={index} className="p-3 bg-muted rounded-lg space-y-2">
+                            <div className="text-sm text-foreground font-mono">{conflict.path}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Found in: {conflict.packs.map((p) => p.packName).join(", ")}
+                            </div>
+                            <select
+                              value={conflict.resolution}
+                              onChange={(e) => {
+                                const newConflicts = [...mergeConflicts]
+                                newConflicts[index].resolution = e.target.value as any
+                                setMergeConflicts(newConflicts)
+                              }}
+                              className="w-full px-3 py-1 border-2 border-primary rounded bg-background text-foreground"
+                            >
+                              <option value="overwrite">Overwrite (use last)</option>
+                              <option value="skip">Skip (use first)</option>
+                              <option value="rename">Rename (keep all)</option>
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={executeMerge}
+                        disabled={isProcessing}
+                        className="w-full px-6 py-3 bg-accent text-accent-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
+                      >
+                        Execute Merge
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "versions" && (
+            <div className="space-y-6">
+              <div className="border-2 border-primary rounded-lg p-6 bg-card">
+                <h3 className="text-xl font-bold text-primary mb-4">Multi-Version Pack Generation</h3>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Generate resource packs for multiple Minecraft versions simultaneously.
+                  </p>
+                  <div className="space-y-2">
+                    {versionConfigs.map((config, index) => (
+                      <div key={index} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={config.enabled}
+                            onChange={(e) => {
+                              const newConfigs = [...versionConfigs]
+                              newConfigs[index].enabled = e.target.checked
+                              setVersionConfigs(newConfigs)
+                            }}
+                            className="w-5 h-5"
+                          />
+                          <div>
+                            <div className="font-semibold text-foreground">Minecraft {config.version}</div>
+                            <div className="text-xs text-muted-foreground">Pack Format: {config.format}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={generateMultiVersionPacks}
+                    disabled={isProcessing || versionConfigs.filter((v) => v.enabled).length === 0}
+                    className="w-full px-6 py-3 bg-accent text-accent-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
+                  >
+                    Generate All Enabled Versions
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "geyser" && (
+            <div className="space-y-4">
+              <div className="bg-card rounded-lg border border-border p-4">
+                <h3 className="font-semibold text-lg mb-2">Upload Geyser Mappings</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Upload a geyser_mappings.json file to assist with Bedrock pack importing.
+                </p>
+                <div className="flex items-center gap-4">
+                  <Button variant="outline" className="relative">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Select File
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          try {
+                            const text = await file.text()
+                            const json = JSON.parse(text)
+                            setGeyserMappings(json)
+                            toast({ title: "Success", description: "Mappings loaded successfully!" })
+                          } catch (err) {
+                            toast({ title: "Error", description: "Failed to parse mappings file.", variant: "destructive" })
+                          }
                         }
                       }}
                     />
-                  </label>
-                </div>
-                {resourcePack.models.length === 0 ? (
-                  <p className="text-center text-muted-foreground">{t.models.noModels}</p>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {resourcePack.models.map((model) => {
-                      const validation = validateModel(model)
-                      const filteredSuggestions = MINECRAFT_ITEMS.filter((item) =>
-                        item.toLowerCase().includes((targetItemInput[model.id] || model.targetItem).toLowerCase()),
-                      ).slice(0, 10)
-
-                      // Find preview texture
-                      const firstTextureKey = Object.keys(model.textures)[0]
-                      const firstTexturePath = model.textures[firstTextureKey]?.replace("item/", "").replace("minecraft:item/", "")
-                      const previewTexture = resourcePack.textures.find(t => t.name === firstTexturePath)
-
-                      return (
-                        <div
-                          key={model.id}
-                          className={`rounded-lg border-2 p-4 flex flex-col h-full shadow-sm hover:shadow-md transition-shadow ${validation.isValid
-                            ? "border-green-500/50 bg-card"
-                            : "border-destructive bg-destructive/5"
-                            }`}
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center border border-border overflow-hidden">
-                                {previewTexture ? (
-                                  <img src={URL.createObjectURL(previewTexture.file)} alt={model.name} className="w-full h-full object-contain pixelated" />
-                                ) : (
-                                  <div className="text-xs text-muted-foreground">No Preview</div>
-                                )}
-                              </div>
-                              <div>
-                                <input
-                                  type="text"
-                                  value={model.name}
-                                  onChange={(e) => updateModel(model.id, { name: e.target.value })}
-                                  className="font-bold text-lg w-full bg-transparent border-none focus:outline-none focus:ring-1 focus:ring-primary rounded px-1 -ml-1"
-                                  placeholder="Model Name"
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                  {model.isDefaultOverride ? "Default Override" : `CMD: ${model.customModelData}`}
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => deleteModel(model.id)}
-                              className="text-destructive hover:bg-destructive/10 p-2 rounded-md transition-colors"
-                            >
-                              <span className="text-xl">×</span>
-                            </button>
-                          </div>
-
-                          <div className="space-y-3 flex-1">
-                            {/* Compact Inputs */}
-                            <div>
-                              <label className="text-xs font-medium text-muted-foreground">Target Item</label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={
-                                    targetItemInput[model.id] !== undefined ? targetItemInput[model.id] : model.targetItem
-                                  }
-                                  onChange={(e) => {
-                                    const value = e.target.value
-                                    setTargetItemInput((prev) => ({ ...prev, [model.id]: value }))
-                                    setShowTargetItemSuggestions((prev) => ({ ...prev, [model.id]: true }))
-                                    updateModel(model.id, { targetItem: value })
-                                  }}
-                                  className="w-full rounded-md border border-border bg-input px-2 py-1 text-sm"
-                                  placeholder="Enter item ID"
-                                />
-                                {showTargetItemSuggestions[model.id] && filteredSuggestions.length > 0 && (
-                                  <div className="absolute z-10 mt-1 w-full rounded-md border-2 border-border bg-background shadow-lg max-h-40 overflow-y-auto">
-                                    {filteredSuggestions.map((item) => (
-                                      <button
-                                        key={item}
-                                        onMouseDown={(e) => {
-                                          e.preventDefault()
-                                          setTargetItemInput((prev) => ({ ...prev, [model.id]: item }))
-                                          updateModel(model.id, { targetItem: item })
-                                          setShowTargetItemSuggestions((prev) => ({ ...prev, [model.id]: false }))
-                                        }}
-                                        className="w-full px-2 py-1 text-left text-xs hover:bg-accent transition-colors"
-                                      >
-                                        {item}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Quick Texture Selector */}
-                            <div>
-                              <label className="text-xs font-medium text-muted-foreground">Main Texture</label>
-                              <select
-                                value={model.textures["layer0"] || ""}
-                                onChange={(e) => updateModelTexture(model.id, "layer0", e.target.value)}
-                                className="w-full rounded-md border border-border bg-input px-2 py-1 text-sm"
-                              >
-                                <option value="">Select Texture...</option>
-                                {resourcePack.textures.map((t) => {
-                                  // Normalize texture name to match ZIP generation logic
-                                  const normalizedName = t.name
-                                    .replace(/\.[^/.]+$/, "") // Remove extension
-                                    .toLowerCase()
-                                    .replace(/\s+/g, "_") // Replace spaces with underscores
-                                  return (
-                                    <option key={t.id} value={`item/${normalizedName}`}>
-                                      {t.name}
-                                    </option>
-                                  )
-                                })}
-                              </select>
-                            </div>
-
-                            {/* Default Override Toggle */}
-                            <div className="flex items-center justify-between py-2 px-3 bg-muted/30 rounded-md border border-border/50">
-                              <div>
-                                <label className="text-xs font-medium text-foreground">Default Override</label>
-                                <p className="text-[10px] text-muted-foreground">Replace item's default texture</p>
-                              </div>
-                              <input
-                                type="checkbox"
-                                checked={model.isDefaultOverride || false}
-                                onChange={(e) => {
-                                  const isOverride = e.target.checked
-                                  updateModel(model.id, {
-                                    isDefaultOverride: isOverride,
-                                    customModelData: isOverride ? 0 : (model.customModelData === 0 ? 1 : model.customModelData)
-                                  })
-                                }}
-                                className="h-4 w-4 rounded border-border"
-                              />
-                            </div>
-
-                            {/* Command Snippets */}
-                            <div className="pt-2 border-t border-border/50 space-y-3">
-                              <div>
-                                <label className="text-[10px] font-bold uppercase text-primary flex items-center gap-1 mb-1.5">
-                                  <Terminal className="h-3 w-3" />
-                                  {t.models.giveCommand}
-                                </label>
-                                <div className="space-y-1">
-                                  {(() => {
-                                    const targetItem = model.targetItem.includes(":") ? model.targetItem : `minecraft:${model.targetItem}`
-
-                                    // 1.21.4+ Integrated Component Builder
-                                    const cmdMap: string[] = []
-                                    const floats = [model.customModelData, ...(model.customModelDataFloats || [])]
-                                    cmdMap.push(`floats:[${floats.map(f => `${f}${Number.isInteger(f) ? ".0" : ""}`).join(",")}]`)
-
-                                    if (model.customModelDataFlags?.length) cmdMap.push(`flags:[${model.customModelDataFlags.join(",")}]`)
-                                    if (model.customModelDataStrings?.length) cmdMap.push(`strings:[${model.customModelDataStrings.map(s => `"${s}"`).join(",")}]`)
-                                    if (model.customModelDataColors?.length) cmdMap.push(`colors:[${model.customModelDataColors.map(c => c.replace("#", "0x")).join(",")}]`)
-
-                                    const modernGive = `/give @s ${targetItem}[minecraft:custom_model_data={${cmdMap.join(",")}}]`
-                                    const legacyGive = `/give @s ${targetItem}{CustomModelData:${model.customModelData}}`
-
-                                    return [
-                                      { label: "1.21.4+", cmd: modernGive },
-                                      { label: "Legacy", cmd: legacyGive }
-                                    ].map((item) => (
-                                      <div key={item.label} className="group relative flex items-center bg-muted/30 rounded-md border border-border/50 overflow-hidden hover:border-primary/30 transition-colors">
-                                        <span className="px-1.5 py-1 text-[8px] bg-muted border-r border-border/50 font-bold text-muted-foreground min-w-[32px] text-center">
-                                          {item.label}
-                                        </span>
-                                        <code className="px-2 py-0.5 text-[10px] whitespace-nowrap overflow-x-auto no-scrollbar flex-1 font-mono text-foreground/70">
-                                          {item.cmd}
-                                        </code>
-                                        <button
-                                          onClick={() => {
-                                            navigator.clipboard.writeText(item.cmd)
-                                            toast({ title: "Copied!", description: "Give command copied." })
-                                          }}
-                                          className="p-1 px-1.5 hover:bg-primary/20 text-muted-foreground hover:text-primary transition-colors border-l border-border/50"
-                                        >
-                                          <Copy className="h-3 w-3" />
-                                        </button>
-                                      </div>
-                                    ))
-                                  })()}
-                                </div>
-                              </div>
-
-                              <div>
-                                <label className="text-[10px] font-bold uppercase text-accent flex items-center gap-1 mb-1.5">
-                                  <Plus className="h-3 w-3" />
-                                  {t.models.summonCommand}
-                                </label>
-                                <div className="space-y-1">
-                                  {(() => {
-                                    const targetItem = model.targetItem.includes(":") ? model.targetItem : `minecraft:${model.targetItem}`
-
-                                    // 1.21.4+ NBT Component Builder for Item Display
-                                    const cmdObj: any = {
-                                      floats: [model.customModelData, ...(model.customModelDataFloats || [])]
-                                    }
-                                    if (model.customModelDataFlags?.length) cmdObj.flags = model.customModelDataFlags
-                                    if (model.customModelDataStrings?.length) cmdObj.strings = model.customModelDataStrings
-                                    if (model.customModelDataColors?.length) cmdObj.colors = model.customModelDataColors.map(c => c.replace("#", "0x"))
-
-                                    const componentsStr = JSON.stringify({ "minecraft:custom_model_data": cmdObj }).replace(/\"(floats|flags|strings|colors|minecraft:custom_model_data)\":/g, "$1:")
-
-                                    const modernSummon = `/summon item_display ~ ~ ~ {item:{id:"${targetItem}",count:1,components:${componentsStr}}}`
-                                    const modernSummonLarge = `/summon item_display ~ ~0.5 ~ {transformation:{scale:[4.0f,4.0f,4.0f]},item:{id:"${targetItem}",count:1,components:${componentsStr}}}`
-                                    const modernSummonBlock = `/summon item_display ~ ~0.5 ~ {transformation:{scale:[1.0f,1.0f,1.0f]},item_display:"head",item:{id:"${targetItem}",count:1,components:${componentsStr}}}`
-                                    const legacySummon = `/summon armor_stand ~ ~ ~ {ArmorItems:[{},{},{},{id:"${targetItem}",Count:1b,tag:{CustomModelData:${model.customModelData}}}]}`
-
-                                    return [
-                                      { label: "Modern", cmd: modernSummon },
-                                      { label: "Large (4x)", cmd: modernSummonLarge },
-                                      { label: "Head (1x)", cmd: modernSummonBlock },
-                                      { label: "Legacy", cmd: legacySummon }
-                                    ].map((item) => (
-                                      <div key={item.label} className="group relative flex items-center bg-muted/30 rounded-md border border-border/50 overflow-hidden hover:border-accent/30 transition-colors">
-                                        <span className="px-1.5 py-1 text-[8px] bg-muted border-r border-border/50 font-bold text-muted-foreground min-w-[32px] text-center">
-                                          {item.label}
-                                        </span>
-                                        <code className="px-2 py-0.5 text-[10px] whitespace-nowrap overflow-x-auto no-scrollbar flex-1 font-mono text-foreground/70">
-                                          {item.cmd}
-                                        </code>
-                                        <button
-                                          onClick={() => {
-                                            navigator.clipboard.writeText(item.cmd)
-                                            toast({ title: "Copied!", description: "Summon command copied." })
-                                          }}
-                                          className="p-1 px-1.5 hover:bg-accent/20 text-muted-foreground hover:text-accent transition-colors border-l border-border/50"
-                                        >
-                                          <Copy className="h-3 w-3" />
-                                        </button>
-                                      </div>
-                                    ))
-                                  })()}
-                                </div>
-                              </div>
-                            </div>
-
-                            <details className="text-xs">
-                              <summary className="cursor-pointer text-muted-foreground hover:text-primary transition-colors">Advanced Settings</summary>
-                              <div className="mt-2 space-y-2 pl-2 border-l-2 border-border/50">
-                                <div>
-                                  <label className="block text-[10px] uppercase font-bold text-muted-foreground">Parent</label>
-                                  <select
-                                    value={model.parent}
-                                    onChange={(e) => updateModel(model.id, { parent: e.target.value })}
-                                    className="w-full rounded bg-input border border-border px-1 py-0.5"
-                                  >
-                                    <option value="item/generated">item/generated</option>
-                                    <option value="item/handheld">item/handheld</option>
-                                  </select>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <input
-                                    placeholder="Floats"
-                                    className="rounded bg-input border border-border px-1 py-0.5"
-                                    value={model.customModelDataFloats?.join(",") || ""}
-                                    onChange={(e) => updateModel(model.id, { customModelDataFloats: e.target.value.split(",").map(Number).filter(n => !isNaN(n)) })}
-                                  />
-                                  <input
-                                    placeholder="Flags"
-                                    className="rounded bg-input border border-border px-1 py-0.5"
-                                    value={model.customModelDataFlags?.join(",") || ""}
-                                    onChange={(e) => updateModel(model.id, { customModelDataFlags: e.target.value.split(",").map(v => v.trim() === "true") })}
-                                  />
-                                </div>
-
-                                <div className="space-y-2 pt-2 border-t border-border/30">
-                                  <label className="block text-[10px] uppercase font-bold text-muted-foreground">{t.models.transparency}</label>
-                                  <div className="grid grid-cols-1 gap-2">
-                                    <div className="space-y-1">
-                                      <span className="text-[9px] text-muted-foreground">{t.models.renderType}</span>
-                                      <select
-                                        value={model.renderType || "minecraft:item/generated"}
-                                        onChange={(e) => updateModel(model.id, { renderType: e.target.value as any })}
-                                        className="w-full rounded bg-input border border-border px-1 py-0.5"
-                                      >
-                                        <option value="minecraft:item/generated">Default (Cutout)</option>
-                                        <option value="translucent">Translucent (Semi-transparent)</option>
-                                        <option value="cutout">Cutout (Hard transparency)</option>
-                                      </select>
-                                    </div>
-                                    <div className="space-y-1">
-                                      <span className="text-[9px] text-muted-foreground">{t.models.bedrockMaterial}</span>
-                                      <select
-                                        value={model.bedrockMaterial || "entity_alphatest"}
-                                        onChange={(e) => updateModel(model.id, { bedrockMaterial: e.target.value as any })}
-                                        className="w-full rounded bg-input border border-border px-1 py-0.5"
-                                      >
-                                        <option value="entity_alphatest">Alpha Test (Cutout)</option>
-                                        <option value="entity_alphablend">Alpha Blend (Translucent)</option>
-                                        <option value="entity_emissive_alpha">Emissive Alpha (Glow)</option>
-                                      </select>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </details>
-                          </div>
-
-                          {model.bedrockGeometry && (
-                            <div className="mt-3 text-xs bg-blue-500/10 text-blue-600 px-2 py-1 rounded border border-blue-500/20">
-                              Bedrock Geometry Linked
-                            </div>
-                          )}
-                          {!validation.isValid && (
-                            <div className="mt-2 text-xs text-destructive bg-destructive/10 px-2 py-1 rounded">
-                              {validation.errors[0]}
-                            </div>
-                          )}
-
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          }
-
-          {
-            activeTab === "textures" && (
-              <TextureManager
-                textures={resourcePack.textures}
-                onAdd={addTexture}
-                onDelete={deleteTexture}
-                onUpdate={updateTexture}
-                onOptimize={optimizeTexture}
-                onOptimizeAll={optimizeAllTextures}
-              />
-            )
-          }
-
-          {
-            activeTab === "fonts" && (
-              <FontManager
-                fonts={resourcePack.fonts}
-                onAdd={addFont}
-                onUpdate={updateFont}
-                onDelete={deleteFont}
-                onImport={handleFontImport}
-                t={t}
-              />
-            )
-          }
-
-          {
-            activeTab === "sounds" && (
-              <SoundManager
-                sounds={resourcePack.sounds}
-                onAdd={addSound}
-                onUpdate={updateSound}
-                onDelete={deleteSound}
-                t={t}
-              />
-            )
-          }
-
-          {
-            activeTab === "particles" && (
-              <ParticleManager
-                particles={resourcePack.particles}
-                onAdd={addParticle}
-                onUpdate={updateParticle}
-                onDelete={deleteParticle}
-                textures={resourcePack.textures}
-                onUploadTexture={addTexture}
-                t={t}
-              />
-            )
-          }
-
-          {
-            activeTab === "shaders" && (
-              <ShaderManager
-                shaders={resourcePack.shaders}
-                onAdd={addShader}
-                onDelete={deleteShader}
-                t={t}
-              />
-            )
-          }
-
-
-
-          {
-            activeTab === "merge" && (
-              <div className="space-y-6">
-                <div className="border-2 border-primary rounded-lg p-6 bg-card">
-                  <h3 className="text-xl font-bold text-primary mb-4">Texture Pack Merge</h3>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">
-                        Upload Resource Packs to Merge
-                      </label>
-                      <input
-                        type="file"
-                        accept=".zip"
-                        multiple
-                        onChange={(e) => e.target.files && handleMergePackUpload(e.target.files)}
-                        className="w-full px-4 py-2 border-2 border-primary rounded-lg bg-background text-foreground"
-                      />
-                    </div>
-
-                    {mergePacks.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-foreground">Packs to Merge ({mergePacks.length})</h4>
-                        <div className="space-y-2">
-                          {mergePacks.map((pack, index) => (
-                            <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                              <span className="text-foreground">{pack.name}</span>
-                              <button
-                                onClick={() => setMergePacks((prev) => prev.filter((_, i) => i !== index))}
-                                className="px-3 py-1 bg-destructive text-destructive-foreground rounded hover:opacity-80"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button
-                            onClick={analyzeMergeConflicts}
-                            disabled={isProcessing}
-                            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
-                          >
-                            Analyze Conflicts
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {mergeConflicts.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-foreground">Conflicts Found ({mergeConflicts.length})</h4>
-                        <div className="space-y-2 max-h-96 overflow-y-auto">
-                          {mergeConflicts.map((conflict, index) => (
-                            <div key={index} className="p-3 bg-muted rounded-lg space-y-2">
-                              <div className="text-sm text-foreground font-mono">{conflict.path}</div>
-                              <div className="text-xs text-muted-foreground">
-                                Found in: {conflict.packs.map((p) => p.packName).join(", ")}
-                              </div>
-                              <select
-                                value={conflict.resolution}
-                                onChange={(e) => {
-                                  const newConflicts = [...mergeConflicts]
-                                  newConflicts[index].resolution = e.target.value as any
-                                  setMergeConflicts(newConflicts)
-                                }}
-                                className="w-full px-3 py-1 border-2 border-primary rounded bg-background text-foreground"
-                              >
-                                <option value="overwrite">Overwrite (use last)</option>
-                                <option value="skip">Skip (use first)</option>
-                                <option value="rename">Rename (keep all)</option>
-                              </select>
-                            </div>
-                          ))}
-                        </div>
-
-                        <button
-                          onClick={executeMerge}
-                          disabled={isProcessing}
-                          className="w-full px-6 py-3 bg-accent text-accent-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
-                        >
-                          Execute Merge
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  </Button>
+                  {geyserMappings && <span className="text-green-600 text-sm">✓ Mappings Loaded</span>}
                 </div>
               </div>
-            )
-          }
 
-          {
-            activeTab === "versions" && (
-              <div className="space-y-6">
-                <div className="border-2 border-primary rounded-lg p-6 bg-card">
-                  <h3 className="text-xl font-bold text-primary mb-4">Multi-Version Pack Generation</h3>
-
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Generate resource packs for multiple Minecraft versions simultaneously.
-                    </p>
-
-                    <div className="space-y-2">
-                      {versionConfigs.map((config, index) => (
-                        <div key={index} className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <input
-                              type="checkbox"
-                              checked={config.enabled}
-                              onChange={(e) => {
-                                const newConfigs = [...versionConfigs]
-                                newConfigs[index].enabled = e.target.checked
-                                setVersionConfigs(newConfigs)
-                              }}
-                              className="w-5 h-5"
-                            />
-                            <div>
-                              <div className="font-semibold text-foreground">Minecraft {config.version}</div>
-                              <div className="text-xs text-muted-foreground">Pack Format: {config.format}</div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <button
-                      onClick={generateMultiVersionPacks}
-                      disabled={isProcessing || versionConfigs.filter((v) => v.enabled).length === 0}
-                      className="w-full px-6 py-3 bg-accent text-accent-foreground rounded-lg hover:opacity-90 disabled:opacity-50"
-                    >
-                      Generate All Enabled Versions
-                    </button>
-                  </div>
+              <div className="bg-card rounded-lg border border-border p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold text-lg">Mapped Items</h3>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const mapping = generateGeyserMapping()
+                      const blob = new Blob([mapping], { type: "application/json" })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement("a")
+                      a.href = url
+                      a.download = "geyser_mappings.json"
+                      document.body.appendChild(a)
+                      a.click()
+                      document.body.removeChild(a)
+                      URL.revokeObjectURL(url)
+                    }}
+                  >
+                    Download Mappings
+                  </Button>
                 </div>
-              </div>
-            )
-          }
-
-          {
-            activeTab === "geyser" && (
-              <div className="md:col-span-3 space-y-4">
-                <div className="bg-card rounded-lg border border-border p-4">
-                  <h3 className="font-semibold text-lg mb-2">Upload Geyser Mappings</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Upload a geyser_mappings.json file to assist with Bedrock pack importing.
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <Button variant="outline" className="relative">
-                      <Upload className="mr-2 h-4 w-4" />
-                      Select File
-                      <input
-                        type="file"
-                        accept=".json"
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0]
-                          if (file) {
-                            try {
-                              const text = await file.text()
-                              const json = JSON.parse(text)
-                              setGeyserMappings(json)
-                              toast({
-                                title: "Success",
-                                description: "Mappings loaded successfully!",
-                              })
-                            } catch (err) {
-                              toast({
-                                title: "Error",
-                                description: "Failed to parse mappings file.",
-                                variant: "destructive",
-                              })
-                            }
-                          }
-                        }}
-                      />
-                    </Button>
-                    {geyserMappings && <span className="text-green-600 text-sm">✓ Mappings Loaded</span>}
-                  </div>
-                </div>
-
-
-                <div className="bg-card rounded-lg border border-border p-4">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-semibold text-lg">Mapped Items</h3>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        const mapping = generateGeyserMapping()
-                        const blob = new Blob([mapping], { type: "application/json" })
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement("a")
-                        a.href = url
-                        a.download = "geyser_mappings.json"
-                        document.body.appendChild(a)
-                        a.click()
-                        document.body.removeChild(a)
-                        URL.revokeObjectURL(url)
-                      }}
-                    >
-                      Download Mappings
-                    </Button>
-                  </div>
-
-                  <div className="border border-border rounded-md bg-muted/50 overflow-hidden">
-                    <div className="max-h-[400px] overflow-y-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted sticky top-0">
-                          <tr>
-                            <th className="p-2 text-left font-medium">Java Item</th>
-                            <th className="p-2 text-left font-medium">CMD</th>
-                            <th className="p-2 text-left font-medium">Bedrock Name</th>
-                            <th className="p-2 text-left font-medium">Texture</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {/* Display mappings from loaded file OR current pack */}
-                          {geyserMappings ? (
-                            Object.entries(geyserMappings.items).map(([item, entries]) => (
-                              entries.map((entry, i) => (
-                                <tr key={`${item}-${i}`} className="hover:bg-accent/50">
-                                  <td className="p-2 font-mono text-xs">{item}</td>
-                                  <td className="p-2">{entry.custom_model_data}</td>
-                                  <td className="p-2">{entry.name}</td>
-                                  <td className="p-2 text-muted-foreground">{entry.icon || entry.name}</td>
-                                </tr>
-                              ))
-                            ))
-                          ) : resourcePack.models.length > 0 ? (
-                            resourcePack.models.map(model => (
-                              <tr key={model.id} className="hover:bg-accent/50">
-                                <td className="p-2 font-mono text-xs">minecraft:{model.targetItem}</td>
-                                <td className="p-2">{model.customModelData}</td>
-                                <td className="p-2">{model.name}</td>
-                                <td className="p-2 text-muted-foreground">
-                                  {Object.values(model.textures)[0]?.replace(/^.*\/|minecraft:item\/|\.png$/g, "") || "-"}
-                                </td>
+                <div className="border border-border rounded-md bg-muted/50 overflow-hidden">
+                  <div className="max-h-[400px] overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted sticky top-0">
+                        <tr>
+                          <th className="p-2 text-left font-medium">Java Item</th>
+                          <th className="p-2 text-left font-medium">CMD</th>
+                          <th className="p-2 text-left font-medium">Bedrock Name</th>
+                          <th className="p-2 text-left font-medium">Texture</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {geyserMappings ? (
+                          Object.entries(geyserMappings.items).map(([item, entries]) => (
+                            entries.map((entry, i) => (
+                              <tr key={`${item}-${i}`} className="hover:bg-accent/50">
+                                <td className="p-2 font-mono text-xs">{item}</td>
+                                <td className="p-2">{entry.custom_model_data}</td>
+                                <td className="p-2">{entry.name}</td>
+                                <td className="p-2 text-muted-foreground">{entry.icon || entry.name}</td>
                               </tr>
                             ))
-                          ) : (
-                            <tr>
-                              <td colSpan={4} className="p-8 text-center text-muted-foreground">
-                                No mappings available. Add models or import a mapping file.
+                          ))
+                        ) : resourcePack.models.length > 0 ? (
+                          resourcePack.models.map(model => (
+                            <tr key={model.id} className="hover:bg-accent/50">
+                              <td className="p-2 font-mono text-xs">minecraft:{model.targetItem}</td>
+                              <td className="p-2">{model.customModelData}</td>
+                              <td className="p-2">{model.name}</td>
+                              <td className="p-2 text-muted-foreground">
+                                {Object.values(model.textures)[0]?.replace(/^.*\/|minecraft:item\/|\.png$/g, "") || "-"}
                               </td>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                              No mappings available. Add models or import a mapping file.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
-            )
-          }
-          {
-            activeTab === "preview" && (
-              <div className="space-y-4">
-                <div className="rounded-lg border border-border bg-muted p-6">
-                  <h3 className="mb-4 text-lg font-semibold">Pack Summary</h3>
-                  <dl className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Name:</dt>
-                      <dd className="font-medium">{resourcePack.name || "Untitled"}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Models:</dt>
-                      <dd className="font-medium">{packStats.totalModels}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Textures:</dt>
-                      <dd className="font-medium">{packStats.totalTextures}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Total Size:</dt>
-                      <dd className="font-medium">{packStats.formattedSize}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Fonts:</dt>
-                      <dd className="font-medium">{resourcePack.fonts.length}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Sounds:</dt>
-                      <dd className="font-medium">{resourcePack.sounds.length}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Particles:</dt>
-                      <dd className="font-medium">{resourcePack.particles.length}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-muted-foreground">Shaders:</dt>
-                      <dd className="font-medium">{resourcePack.shaders.length}</dd>
-                    </div>
-                  </dl>
-                </div>
-                {validationResults.errors.length > 0 && (
-                  <div className="rounded-lg border border-destructive bg-destructive/10 p-4">
-                    <h4 className="mb-2 font-semibold text-destructive">Validation Errors:</h4>
-                    <ul className="list-inside list-disc space-y-1 text-sm text-destructive">
-                      {validationResults.errors.map((error, i) => (
-                        <li key={i}>{error}</li>
-                      ))}
-                    </ul>
+            </div>
+          )}
+
+          {activeTab === "preview" && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted p-6">
+                <h3 className="mb-4 text-lg font-semibold">Pack Summary</h3>
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Name:</dt>
+                    <dd className="font-medium">{resourcePack.name || "Untitled"}</dd>
                   </div>
-                )}
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Models:</dt>
+                    <dd className="font-medium">{packStats.totalModels}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Textures:</dt>
+                    <dd className="font-medium">{packStats.totalTextures}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Total Size:</dt>
+                    <dd className="font-medium">{packStats.formattedSize}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Fonts:</dt>
+                    <dd className="font-medium">{resourcePack.fonts.length}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Sounds:</dt>
+                    <dd className="font-medium">{resourcePack.sounds.length}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Particles:</dt>
+                    <dd className="font-medium">{resourcePack.particles.length}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Shaders:</dt>
+                    <dd className="font-medium">{resourcePack.shaders.length}</dd>
+                  </div>
+                </dl>
               </div>
-            )
-          }
-        </div >
+              {validationResults.errors.length > 0 && (
+                <div className="rounded-lg border border-destructive bg-destructive/10 p-4">
+                  <h4 className="mb-2 font-semibold text-destructive">Validation Errors:</h4>
+                  <ul className="list-inside list-disc space-y-1 text-sm text-destructive">
+                    {validationResults.errors.map((error, i) => (
+                      <li key={i}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Action Buttons */}
-        < div className="mt-6 flex flex-wrap gap-4" >
+        <div className="mt-6 flex flex-wrap gap-4">
           <button
             onClick={generateZip}
             disabled={isProcessing}
@@ -4038,15 +4008,12 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
           </button>
           <button
             onClick={() => {
-              // Trigger file input click for import
               const fileInput = document.createElement("input")
               fileInput.type = "file"
               fileInput.accept = ".zip,.json"
               fileInput.onchange = (e) => {
                 const file = (e.target as HTMLInputElement).files?.[0]
-                if (file) {
-                  importExistingPack(file)
-                }
+                if (file) importExistingPack(file)
               }
               fileInput.click()
             }}
@@ -4054,23 +4021,22 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
           >
             {t.actions.import}
           </button>
-        </div >
+        </div>
 
         {/* Progress Bar */}
-        {
-          isProcessing && (
-            <div className="mt-6 rounded-lg border border-border bg-card p-4">
-              <div className="mb-2 flex justify-between text-sm">
-                <span>{processingStep}</span>
-                <span>{Math.round(progress)}%</span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full bg-secondary transition-all duration-300" style={{ width: `${progress}%` }} />
-              </div>
+        {isProcessing && (
+          <div className="mt-6 rounded-lg border border-border bg-card p-4">
+            <div className="mb-2 flex justify-between text-sm">
+              <span>{processingStep}</span>
+              <span>{Math.round(progress)}%</span>
             </div>
-          )
-        }
-      </div >
-    </div >
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full bg-secondary transition-all duration-300" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </div >
   )
 }
