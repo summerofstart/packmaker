@@ -730,6 +730,8 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
                                                                 if (autoAssignUnicode && (!provider.chars || provider.chars.length === 0 || (provider.chars.length === 1 && !provider.chars[0]))) {
                                                                     const next = findNextAvailableUnicode(unicodeStart)
                                                                     updates.chars = [String.fromCodePoint(parseInt(next, 16))]
+                                                                    // Update preview text to show the newly added character
+                                                                    setPreviewText(`\\u${next}`)
                                                                 }
                                                                 updateProvider(font.id, index, updates)
                                                             }
@@ -774,6 +776,8 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
                                                             const next = findNextAvailableUnicode(unicodeStart)
                                                             const char = String.fromCodePoint(parseInt(next, 16))
                                                             updateProvider(font.id, index, { chars: [char] })
+                                                            // Update preview text to show the newly added character
+                                                            setPreviewText(`\\u${next}`)
                                                         }}
                                                     >
                                                         <Sparkles className="h-3 w-3" />
@@ -789,6 +793,29 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
                                                 />
                                                 <p className="text-xs text-muted-foreground">Each line represents a row in the texture. Use Unicode characters like \uE000, \uE001, etc.</p>
                                             </div>
+
+                                            {provider.fileHandle && (
+                                                <div className="space-y-2 pt-4 border-t">
+                                                    <Label className="text-sm font-semibold flex items-center gap-2">
+                                                        <Eye className="h-4 w-4" />
+                                                        Texture Preview
+                                                    </Label>
+                                                    <div className="flex justify-center p-4 bg-muted/30 rounded border-2 border-dashed">
+                                                        <img
+                                                            src={URL.createObjectURL(provider.fileHandle)}
+                                                            alt="Bitmap preview"
+                                                            className="max-w-full h-auto pixelated border border-border"
+                                                            style={{ imageRendering: 'pixelated', maxHeight: '200px' }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                                        <div><strong>Assigned Unicode:</strong> {provider.chars?.[0] ? `\\u${provider.chars[0].charCodeAt(0).toString(16).toUpperCase()}` : 'None'}</div>
+                                                        <div><strong>Height:</strong> {provider.height}px</div>
+                                                        <div><strong>Ascent:</strong> {provider.ascent}px</div>
+                                                        <div><strong>File:</strong> {provider.fileHandle.name}</div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
