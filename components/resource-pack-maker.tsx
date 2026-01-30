@@ -428,6 +428,24 @@ const PACK_FORMATS = [
 
 import { useToast } from "@/hooks/use-toast"
 
+const stringifyWithEscapes = (obj: any) => {
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === "string") {
+      let escaped = ""
+      for (let i = 0; i < value.length; i++) {
+        const charCode = value.charCodeAt(i)
+        if (charCode > 127) {
+          escaped += "\\u" + charCode.toString(16).toUpperCase().padStart(4, "0")
+        } else {
+          escaped += value[i]
+        }
+      }
+      return escaped
+    }
+    return value
+  }, 2).replace(/\\\\u/g, "\\u") // Fix double escape for unicode
+}
+
 export function ResourcePackMaker() {
   const { toast } = useToast()
   const [language, setLanguage] = useState<"ja" | "en">("en") // Default to English
@@ -1866,7 +1884,13 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
             }),
           }
 
-          zip.file(`assets/minecraft/font/${font.name}.json`, JSON.stringify(fontJson, null, 2))
+          // Ensure the font filename is 'default.json' if it's the primary/only font, or respect its name
+          let fontFilename = font.name
+          if (resourcePack.fonts.length === 1 || font.name.toLowerCase().includes("default")) {
+            fontFilename = "default"
+          }
+
+          zip.file(`assets/minecraft/font/${fontFilename}.json`, stringifyWithEscapes(fontJson))
         }
       }
 
@@ -2764,9 +2788,11 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
   }, [])
 
   const addFont = useCallback((file?: File) => {
+    const nextNum = resourcePack.fonts.length + 1
+    const name = resourcePack.fonts.length === 0 ? "default" : `custom_font_${nextNum}`
     const newFont: CustomFont = {
       id: `font_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      name: `custom_font_${resourcePack.fonts.length + 1}`,
+      name: name,
       providers: [],
       file: file
     }
