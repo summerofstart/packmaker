@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Trash2, Type, MoveRight, Layers, Settings2, Layout, Smartphone, Sparkles, Eye, Copy } from "lucide-react"
+import { Plus, Trash2, Type, MoveRight, Layers, Settings2, Layout, Smartphone, Sparkles, Eye, Copy, MessageSquare, FileText } from "lucide-react"
 import { CustomFont, FontProvider } from "./types"
 import { Badge } from "@/components/ui/badge"
 
@@ -133,6 +133,56 @@ const FONT_PRESETS = {
             }
         ],
         usage: '{"text": "§f\\uE009 Strength III"}'
+    },
+    custom_gui: {
+        name: "Custom GUI Background",
+        description: "Large textures for custom container GUIs (chests, barrels)",
+        icon: Layout,
+        providers: [
+            {
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
+                type: "space" as const,
+                advances: { "\uF801": -1, "\uF808": -8, "\uF80A": -10, "\uF80C": -12 }
+            },
+            {
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
+                type: "bitmap" as const,
+                height: 80,
+                ascent: 10,
+                chars: ["\uE200"]
+            }
+        ],
+        usage: '/give @p chest{display:{Name:\'[{"text":"\\uF808\\uE200\\uF80C\\uF80A\\uF808\\uF801","color":"white"},{"text":"Custom GUI","italic":false,"color":"#3F3F3F"}]\'}}'
+    },
+    speech_bubble: {
+        name: "Speech Bubble",
+        description: "Comic-style balloons for NPCs or dialogue systems",
+        icon: MessageSquare,
+        providers: [
+            {
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
+                type: "bitmap" as const,
+                height: 32,
+                ascent: 0,
+                chars: ["\uE003"]
+            }
+        ],
+        usage: '/summon armor_stand ~ ~ ~ {CustomName:\'{"text":"\\uE003"}\', CustomNameVisible:1b}'
+    },
+    book_overlay: {
+        name: "Book Overlay",
+        description: "Full-page images or detailed layouts for written books",
+        icon: FileText,
+        providers: [
+            {
+                id: `preset_${Math.random().toString(36).substring(2, 9)}`,
+                type: "bitmap" as const,
+                height: 135,
+                ascent: 14,
+                chars: ["\uE102"]
+            }
+        ],
+        usage: '/give @p written_book{title:"",author:"",pages:[\'{"text":"\\uE102","color":"white"}\']}'
     }
 }
 
@@ -237,6 +287,27 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
     const [selectedPreset, setSelectedPreset] = useState<string | null>(null)
     const [showUnicodeHelper, setShowUnicodeHelper] = useState(false)
     const [unicodeStart, setUnicodeStart] = useState("E000")
+    const [autoAssignUnicode, setAutoAssignUnicode] = useState(true)
+
+    const findNextAvailableUnicode = (startHex: string) => {
+        let current = parseInt(startHex, 16)
+        const usedCodes = new Set<number>()
+
+        fonts.forEach(f => {
+            f.providers.forEach(p => {
+                p.chars?.forEach(row => {
+                    for (const char of row) {
+                        usedCodes.add(char.charCodeAt(0))
+                    }
+                })
+            })
+        })
+
+        while (usedCodes.has(current)) {
+            current++
+        }
+        return current.toString(16).toUpperCase()
+    }
 
     const handleImportConfig = () => {
         try {
@@ -282,11 +353,17 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
         const font = fonts.find((f) => f.id === fontId)
         if (!font) return
 
+        let initialChars: string[] = []
+        if (type === "bitmap" && autoAssignUnicode) {
+            const next = findNextAvailableUnicode(unicodeStart)
+            initialChars = [String.fromCodePoint(parseInt(next, 16))]
+        }
+
         const newProvider: FontProvider = {
             id: `provider_${Math.random().toString(36).substring(2, 9)}`,
             type,
             ...(type === "space" ? { advances: {} } : {}),
-            ...(type === "bitmap" ? { height: 8, ascent: 8, chars: [] } : {}),
+            ...(type === "bitmap" ? { height: 8, ascent: 8, chars: initialChars } : {}),
             ...(type === "ttf" ? { size: 11, oversample: 1, shift: [0, 0], skip: [] } : {})
         }
 
@@ -364,53 +441,71 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
                 </div>
             </div>
 
-            {/* Unicode Helper */}
+            {/* Unicode Management */}
             {showUnicodeHelper && (
                 <Card className="border-2 border-primary/20 bg-primary/5">
                     <CardHeader>
-                        <CardTitle className="text-lg">Unicode Character Helper</CardTitle>
-                        <CardDescription>Generate safe unicode characters for your custom fonts</CardDescription>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <Settings2 className="h-5 w-5" />
+                            Unicode Management & Automation
+                        </CardTitle>
+                        <CardDescription>Configure how Unicode characters are automatically assigned to your fonts.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Start Hex (e.g., E000)</Label>
-                                <Input
-                                    value={unicodeStart}
-                                    onChange={(e) => setUnicodeStart(e.target.value.toUpperCase())}
-                                    placeholder="E000"
-                                    className="font-mono"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Preview</Label>
-                                <div className="p-2 border rounded bg-background font-mono text-sm">
-                                    U+{unicodeStart} = \u{unicodeStart}
+                    <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between p-3 border rounded-lg bg-background">
+                                    <div className="space-y-0.5">
+                                        <Label>Auto-assign Unicode</Label>
+                                        <p className="text-xs text-muted-foreground">Automatically pick the next available character for new providers</p>
+                                    </div>
+                                    <Button
+                                        variant={autoAssignUnicode ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => setAutoAssignUnicode(!autoAssignUnicode)}
+                                    >
+                                        {autoAssignUnicode ? "Enabled" : "Disabled"}
+                                    </Button>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Starting Hex Code</Label>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={unicodeStart}
+                                            onChange={(e) => setUnicodeStart(e.target.value.toUpperCase())}
+                                            placeholder="E000"
+                                            className="font-mono"
+                                        />
+                                        <div className="flex items-center px-3 border rounded bg-muted font-mono text-sm">
+                                            Next: \u{findNextAvailableUnicode(unicodeStart)}
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground italic">
+                                        Default Minecraft PUA starts at E000.
+                                    </p>
                                 </div>
                             </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Common Ranges</Label>
-                            <div className="grid gap-2">
-                                {Object.entries(UNICODE_RANGES).map(([key, range]) => (
-                                    <div key={key} className="p-3 border rounded bg-background">
-                                        <div className="flex items-center justify-between">
+
+                            <div className="space-y-2">
+                                <Label>Common Unicode Ranges</Label>
+                                <div className="grid gap-2">
+                                    {Object.entries(UNICODE_RANGES).map(([key, range]) => (
+                                        <div key={key} className="p-2 border rounded bg-background flex items-center justify-between text-xs">
                                             <div>
-                                                <p className="font-semibold text-sm">{range.name}</p>
-                                                <p className="text-xs text-muted-foreground font-mono">
-                                                    U+{range.start.toString(16).toUpperCase()} - U+{range.end.toString(16).toUpperCase()}
-                                                </p>
+                                                <p className="font-semibold">{range.name}</p>
+                                                <code className="text-muted-foreground">U+{range.start.toString(16).toUpperCase()} - U+{range.end.toString(16).toUpperCase()}</code>
                                             </div>
                                             <Button
                                                 size="sm"
-                                                variant="outline"
+                                                variant="ghost"
                                                 onClick={() => setUnicodeStart(range.start.toString(16).toUpperCase())}
                                             >
                                                 Use
                                             </Button>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </CardContent>
@@ -630,9 +725,25 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
                                                         onChange={(e) => {
                                                             const file = e.target.files?.[0]
                                                             if (file) {
-                                                                updateProvider(font.id, index, { fileHandle: file })
+                                                                const updates: Partial<FontProvider> = { fileHandle: file }
+                                                                // Auto-assign unicode if grid is empty and auto is enabled
+                                                                if (autoAssignUnicode && (!provider.chars || provider.chars.length === 0 || (provider.chars.length === 1 && !provider.chars[0]))) {
+                                                                    const next = findNextAvailableUnicode(unicodeStart)
+                                                                    updates.chars = [String.fromCodePoint(parseInt(next, 16))]
+                                                                }
+                                                                updateProvider(font.id, index, updates)
                                                             }
                                                         }}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Custom Path <span className="text-xs text-muted-foreground">(optional, e.g., minecraft:font/icon.png)</span></Label>
+                                                    <Input
+                                                        type="text"
+                                                        value={provider.file || ""}
+                                                        onChange={(e) => updateProvider(font.id, index, { file: e.target.value })}
+                                                        placeholder="minecraft:font/custom.png"
+                                                        className="font-mono text-xs"
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
@@ -643,7 +754,7 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
                                                         onChange={(e) => updateProvider(font.id, index, { height: parseInt(e.target.value) })}
                                                     />
                                                 </div>
-                                                <div className="col-span-2 space-y-2">
+                                                <div className="space-y-2">
                                                     <Label>Ascent <span className="text-xs text-muted-foreground">(vertical position, must be &lt; height)</span></Label>
                                                     <Input
                                                         type="number"
@@ -653,7 +764,22 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
-                                                <Label>Characters Grid</Label>
+                                                <div className="flex items-center justify-between">
+                                                    <Label>Characters Grid</Label>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-6 text-[10px] gap-1"
+                                                        onClick={() => {
+                                                            const next = findNextAvailableUnicode(unicodeStart)
+                                                            const char = String.fromCodePoint(parseInt(next, 16))
+                                                            updateProvider(font.id, index, { chars: [char] })
+                                                        }}
+                                                    >
+                                                        <Sparkles className="h-3 w-3" />
+                                                        Auto-fill Next Unicode
+                                                    </Button>
+                                                </div>
                                                 <Textarea
                                                     className="font-mono text-sm tracking-widest break-all"
                                                     rows={5}
@@ -668,7 +794,7 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
 
                                     {provider.type === "ttf" && (
                                         <div className="space-y-4">
-                                            <div className="grid grid-cols-3 gap-4">
+                                            <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-2">
                                                     <Label>Font File {provider.fileHandle && <span className="text-xs text-muted-foreground font-normal">({provider.fileHandle.name})</span>}</Label>
                                                     <Input
@@ -680,6 +806,16 @@ export function FontManager({ fonts, onAdd, onImport, onUpdate, onDelete, t }: F
                                                                 updateProvider(font.id, index, { fileHandle: file })
                                                             }
                                                         }}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Custom Path <span className="text-xs text-muted-foreground">(optional, e.g., minecraft:negative_spaces.ttf)</span></Label>
+                                                    <Input
+                                                        type="text"
+                                                        value={provider.file || ""}
+                                                        onChange={(e) => updateProvider(font.id, index, { file: e.target.value })}
+                                                        placeholder="minecraft:font/custom.ttf"
+                                                        className="font-mono text-xs"
                                                     />
                                                 </div>
                                                 <div className="space-y-2">
