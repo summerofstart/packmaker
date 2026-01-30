@@ -1807,91 +1807,102 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
       if (resourcePack.fonts.length > 0) {
         updateProgress("Adding custom fonts...", 85)
 
+        const allProviders: any[] = []
+
         for (const font of resourcePack.fonts) {
-          const fontJson = {
-            providers: font.providers.map((provider) => {
-              const providerJson: any = {
-                type: provider.type,
-              }
+          const fontNameClean = font.name.toLowerCase().replace(/[^a-z0-9_]/g, "_")
 
-              // Handle file name and saving
-              let filename = font.name
-              let extension = ""
+          font.providers.forEach((provider) => {
+            const providerJson: any = {
+              type: provider.type,
+            }
 
-              if (provider.fileHandle) {
-                filename = provider.fileHandle.name.split(".").pop() ? provider.fileHandle.name.replace(/\.[^/.]+$/, "") : provider.fileHandle.name
-                extension = provider.fileHandle.name.split(".").pop() || ""
-              } else if (font.file) {
-                filename = font.file.name.replace(/\.[^/.]+$/, "")
-                extension = font.file.name.split(".").pop() || ""
-              }
+            // Handle file name and saving
+            let filename = ""
+            let extension = ""
+            let fileToSave: File | undefined = undefined
 
-              if (provider.type === "bitmap") {
-                // Determine bitmap path
-                let bitmapPath = provider.file || `minecraft:font/${filename}.png`
+            if (provider.fileHandle) {
+              fileToSave = provider.fileHandle
+            } else if (font.file && (
+              (provider.type === "bitmap" && font.file.name.endsWith(".png")) ||
+              (provider.type === "ttf" && (font.file.name.endsWith(".ttf") || font.file.name.endsWith(".otf")))
+            )) {
+              fileToSave = font.file
+            }
 
-                if (provider.fileHandle) {
-                  const safeName = provider.fileHandle.name
-                  // If no custom path specified, use the uploaded filename
-                  if (!provider.file) {
-                    bitmapPath = `minecraft:font/${safeName}`
-                  }
-                  zip.file(`assets/minecraft/textures/font/${safeName}`, provider.fileHandle)
-                } else if (font.file && extension.toLowerCase() === "png") {
-                  const safeName = `${filename}.png`
-                  if (!provider.file) {
-                    bitmapPath = `minecraft:font/${safeName}`
-                  }
-                  zip.file(`assets/minecraft/textures/font/${safeName}`, font.file)
+            if (fileToSave) {
+              // Extract extension and original filename
+              extension = fileToSave.name.split(".").pop()?.toLowerCase() || ""
+              const originalName = fileToSave.name.replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9_]/g, "_")
+              // Create a unique filename using font name + original filename
+              filename = `${fontNameClean}_${originalName}`
+            } else {
+              // Fallback for when no file is provided but a custom path might be manual
+              filename = fontNameClean
+            }
+
+            if (provider.type === "bitmap") {
+              // Determine bitmap path
+              let bitmapPath = provider.file
+
+              if (fileToSave && extension === "png") {
+                // If we have a file, upload it and point to it
+                const saveName = `${filename}.${extension}`
+                const savePath = `assets/minecraft/textures/font/${saveName}`
+                zip.file(savePath, fileToSave)
+
+                // If the user didn't specify a custom path, use the one we just created
+                if (!bitmapPath) {
+                  bitmapPath = `minecraft:font/${saveName}`
                 }
-
-                providerJson.file = bitmapPath
-                providerJson.ascent = provider.ascent || 8
-                providerJson.height = provider.height || 8
-                if (provider.chars) providerJson.chars = provider.chars
-              } else if (provider.type === "ttf") {
-                // Determine ttf path
-                let ttfPath = provider.file || `minecraft:font/${filename}.ttf`
-
-                if (provider.fileHandle) {
-                  const safeName = provider.fileHandle.name
-                  // If no custom path specified, use the uploaded filename
-                  if (!provider.file) {
-                    ttfPath = `minecraft:font/${safeName}`
-                  }
-                  zip.file(`assets/minecraft/font/${safeName}`, provider.fileHandle)
-                } else if (font.file && (extension.toLowerCase() === "ttf" || extension.toLowerCase() === "otf")) {
-                  const safeName = `${filename}.${extension}`
-                  if (!provider.file) {
-                    ttfPath = `minecraft:font/${safeName}`
-                  }
-                  zip.file(`assets/minecraft/font/${safeName}`, font.file)
-                }
-
-                providerJson.file = ttfPath
-                providerJson.size = provider.size || 11
-                providerJson.oversample = provider.oversample || 1.0
-                if (provider.shift) providerJson.shift = provider.shift
-                if (provider.skip) providerJson.skip = provider.skip
-              } else if (provider.type === "space") {
-                providerJson.advances = provider.advances || {}
-              } else if (provider.type === "unihex") {
-                providerJson.hex_file = provider.file || `minecraft:font/unifont.hex`
-                providerJson.size_overrides = []
               }
 
-              return providerJson
-            }),
-          }
+              // If still no path (and no file), fallback to a default guess
+              if (!bitmapPath) {
+                bitmapPath = `minecraft:font/${filename}.png`
+              }
 
-          // Ensure the font filename is 'default.json' if it's the primary/only font, or respect its name
-          let fontFilename = font.name
-          if (resourcePack.fonts.length === 1 || font.name.toLowerCase().includes("default")) {
-            fontFilename = "default"
-          }
+              providerJson.file = bitmapPath
+              providerJson.ascent = provider.ascent || 8
+              providerJson.height = provider.height || 8
+              if (provider.chars) providerJson.chars = provider.chars
+            } else if (provider.type === "ttf") {
+              // Determine ttf path
+              let ttfPath = provider.file
 
-          zip.file(`assets/minecraft/font/${fontFilename}.json`, stringifyWithEscapes(fontJson))
+              if (fileToSave && (extension === "ttf" || extension === "otf")) {
+                const saveName = `${filename}.${extension}`
+                const savePath = `assets/minecraft/font/${saveName}`
+                zip.file(savePath, fileToSave)
+
+                if (!ttfPath) {
+                  ttfPath = `minecraft:font/${saveName}`
+                }
+              }
+
+              if (!ttfPath) {
+                ttfPath = `minecraft:font/${filename}.ttf`
+              }
+
+              providerJson.file = ttfPath
+              providerJson.size = provider.size || 11
+              providerJson.oversample = provider.oversample || 1.0
+              if (provider.shift) providerJson.shift = provider.shift
+              if (provider.skip) providerJson.skip = provider.skip
+            } else if (provider.type === "space") {
+              providerJson.advances = provider.advances || {}
+            } else if (provider.type === "unihex") {
+              providerJson.hex_file = provider.file || `minecraft:font/unifont.hex`
+              providerJson.size_overrides = []
+            }
+
+            allProviders.push(providerJson)
+          })
         }
+
+        // Always write to default.json so all fonts are loaded by default
+        zip.file("assets/minecraft/font/default.json", stringifyWithEscapes({ providers: allProviders }))
       }
 
       // Add sounds
