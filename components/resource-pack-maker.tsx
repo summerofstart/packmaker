@@ -1843,18 +1843,28 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
             }
 
             if (provider.type === "bitmap") {
-              // Determine bitmap path
+              // Determine bitmap path based on user input or file
               let bitmapPath = provider.file
 
               if (fileToSave && extension === "png") {
-                // If we have a file, upload it and point to it
-                const saveName = `${filename}.${extension}`
+                let saveName = `${filename}.${extension}`
+
+                // If user specified a custom path 'minecraft:font/my.png', use 'my.png' as save name
+                if (bitmapPath) {
+                  const customName = bitmapPath.split("/").pop()
+                  if (customName) saveName = customName
+                }
+
+                // Force create the texture at the location expected by the path
                 const savePath = `assets/minecraft/textures/font/${saveName}`
                 zip.file(savePath, fileToSave)
 
-                // If the user didn't specify a custom path, use the one we just created
+                // Ensure bitmapPath matches if it wasn't set or lacks namespace
                 if (!bitmapPath) {
                   bitmapPath = `minecraft:font/${saveName}`
+                } else if (!bitmapPath.includes(':')) {
+                  // Add namespace if missing
+                  bitmapPath = `minecraft:font/${bitmapPath}`
                 }
               }
 
@@ -1872,7 +1882,13 @@ Format: ${resourcePack.format >= 48 ? "1.21.4+ (item_model with range_dispatch)"
               let ttfPath = provider.file
 
               if (fileToSave && (extension === "ttf" || extension === "otf")) {
-                const saveName = `${filename}.${extension}`
+                let saveName = `${filename}.${extension}`
+
+                if (ttfPath) {
+                  const customName = ttfPath.split("/").pop()
+                  if (customName) saveName = customName
+                }
+
                 const savePath = `assets/minecraft/font/${saveName}`
                 zip.file(savePath, fileToSave)
 
