@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Sparkles, Film, Trash2, Upload, Folder } from "lucide-react"
+import { Sparkles, Film, Trash2, Upload, Folder, Box } from "lucide-react"
 import { TextureData } from "./types"
 
 interface TextureManagerProps {
@@ -16,6 +16,8 @@ interface TextureManagerProps {
     onUpdate: (id: string, data: Partial<TextureData>) => void
     onOptimize: (id: string) => void
     onOptimizeAll: () => void
+    autoCreateModel?: boolean
+    onToggleAutoCreateModel?: (value: boolean) => void
 }
 
 const TEXTURE_CATEGORIES = [
@@ -39,6 +41,8 @@ export function TextureManager({
     onUpdate,
     onOptimize,
     onOptimizeAll,
+    autoCreateModel = true,
+    onToggleAutoCreateModel,
 }: TextureManagerProps) {
     const [selectedCategory, setSelectedCategory] = useState("item")
     const [editingAnimation, setEditingAnimation] = useState<string | null>(null)
@@ -90,6 +94,20 @@ export function TextureManager({
                             <Upload className="mr-2 h-4 w-4" />
                             Add Texture
                         </Button>
+                    </div>
+
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/30 border border-border/50">
+                        <input
+                            type="checkbox"
+                            id="auto-create-model"
+                            checked={autoCreateModel}
+                            onChange={(e) => onToggleAutoCreateModel?.(e.target.checked)}
+                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                        />
+                        <Label htmlFor="auto-create-model" className="text-xs font-medium cursor-pointer flex items-center gap-1.5">
+                            <Box className="h-3 w-3 text-primary" />
+                            Auto-create Model
+                        </Label>
                     </div>
                 </div>
 
